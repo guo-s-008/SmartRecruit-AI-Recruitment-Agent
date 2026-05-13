@@ -39,7 +39,7 @@
 
   streamlit run chat_main.py
 
-5. 可选内容
+5. **可选内容**
   python text_data.py   bi表测试数据生成
   python gsh.py         将txt类型的jd标准化
   python import_jd_to_mysql.py 将jd写入mysql（txt）
@@ -48,7 +48,3 @@
 ## 📊 FineBI 报表
 
 配套《FineBI报表实施文档》，详见 `docs/` 目录。
-
-## 📄 License
-
-MIT License
