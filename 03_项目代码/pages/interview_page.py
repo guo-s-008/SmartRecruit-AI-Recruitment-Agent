@@ -134,7 +134,7 @@ else:
     st.markdown("### 🎉 面试完成！")
     st.markdown("感谢您的参与，面试结果将通过邮件通知。")
     if "submitted" not in st.session_state:
-        if st.button("📤 提交面试结果", ...):
+        if st.button("📤 提交面试结果", type="primary", use_container_width=True):
             # 先标记完成，防止重复提交
             update_interview_status(token, 'completed')
             # 后台线程异步评分
