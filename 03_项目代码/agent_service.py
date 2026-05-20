@@ -1,36 +1,36 @@
 
 """
-agent_service.py - 后端服务层（重构版）
-所有供前端 chat_main.py 调用的函数都在这里
-所有底层功能已重构到独立模块中
+agent_service.py - 后端服务层（兼容原有接口，已废弃）
+所有功能已重构到 backend 模块中
+前端代码应直接从 backend 导入
 """
-from config import APP_BASE_URL, INTERVIEW_CONFIG
-from database import (
+from backend.config import APP_BASE_URL, INTERVIEW_CONFIG
+from backend.database import (
     get_db_connection,
     query_jobs_from_db,
     get_jd_from_db,
     get_scoring_criteria_from_db,
     save_to_mysql as _save_to_mysql
 )
-from resume_parser import handle_upload_and_parse
-from ai_scorer import (
+from backend.resume_parser import handle_upload_and_parse
+from backend.ai_scorer import (
     call_llm,
     handle_score,
     ask_resume_question,
     generate_free_reply
 )
-from utils import summarize_text
-from email_service import (
+from backend.utils import summarize_text
+from backend.email_service import (
     send_email as _send_email,
     send_interview_result_email,
     send_interview_invitation_email,
     handle_send_email
 )
-from excel_service import (
+from backend.excel_service import (
     handle_save_to_excel,
     update_excel_interview_scores
 )
-from interview_service import (
+from backend.interview_service import (
     create_interview_link,
     verify_interview_token,
     update_interview_status,
@@ -38,10 +38,9 @@ from interview_service import (
     update_module_questions,
     score_interview
 )
-from log_system import write_recruit_log
+from backend.log_system import write_recruit_log
 
 
-# 保持原有的常量定义
 MODULE_NAMES = INTERVIEW_CONFIG["module_names"]
 MODULE_WEIGHTS = INTERVIEW_CONFIG["module_weights"]
 QUESTIONS_PER_MODULE = INTERVIEW_CONFIG["questions_per_module"]
@@ -54,7 +53,6 @@ MODULE_FIELD_MAP = {
 }
 
 
-# 保持原有的接口函数名称
 def handle_save_to_db(detail_data):
     """将简历评分结果写入 MySQL（resume_record 表）"""
     return _save_to_mysql(detail_data)
@@ -74,7 +72,7 @@ def handle_log(resume_name, job_name, score, email, mail_status, result_status):
 
 def read_resume_text_from_file(filepath):
     """读取简历文本，供面试页调用（兼容旧函数名）"""
-    from utils import read_resume_text
+    from backend.utils import read_resume_text
     return read_resume_text(filepath)
 
 

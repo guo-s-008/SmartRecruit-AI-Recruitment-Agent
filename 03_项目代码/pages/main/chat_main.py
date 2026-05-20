@@ -4,34 +4,34 @@ import random
 import time
 from datetime import datetime
 import logging
-from log_system import write_dialog_log
-from agent_service import send_invitation_email
-from agent_service import handle_save_to_excel
-# ==================== 第一步：导入后端服务模块 ====================
-try:
-    from agent_service import (
-        query_jobs_from_db,
-        get_jd_from_db,
-        handle_upload_and_parse,
-        handle_score,
-        handle_send_email,
-        handle_save_to_db,
-        handle_log,
-        ask_resume_question,
-        generate_free_reply, create_interview_link, get_db_connection
-    )
-    BACKEND_READY = True
-    print("✅ 后端服务模块加载成功")
-except ImportError as e:
-    BACKEND_READY = False
-    print(f"⚠️ 后端服务模块未就绪: {e}")
-    print("⚠️ 将使用模拟函数，部分功能受限")
+import sys
 
-# ==================== 第二步：日志配置 ====================
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from backend.log_system import write_dialog_log
+from backend.email_service import send_interview_invitation_email
+from backend.excel_service import handle_save_to_excel
+from backend.database import (
+    query_jobs_from_db,
+    get_jd_from_db,
+    save_to_mysql,
+    get_db_connection
+)
+from backend.resume_parser import handle_upload_and_parse
+from backend.ai_scorer import (
+    handle_score,
+    ask_resume_question,
+    generate_free_reply
+)
+from backend.email_service import handle_send_email
+from backend.log_system import write_recruit_log
+from backend.interview_service import create_interview_link
+
+BACKEND_READY = True
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("chat_main")
 
-# ==================== 第三步：全局状态初始化 ====================
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = "对话招聘"
 
@@ -72,7 +72,6 @@ if "last_uploaded_filename" not in st.session_state:
 if "show_job_buttons" not in st.session_state:
     st.session_state.show_job_buttons = False
 
-# ==================== 第四步：页面配置 ====================
 st.set_page_config(
     page_title="智聘未来 - AI对话招聘系统",
     page_icon="🤖",
@@ -80,7 +79,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ==================== 第五步：岗位池 ====================
 TARGET_JOBS = [
     "AI大数据工程师", "AI算法工程师", "AI应用开发工程师", "大数据开发工程师",
     "大数据运维开发工程师", "数据分析师", "数据科学家", "推荐算法工程师"
@@ -89,7 +87,6 @@ random.seed(202507)
 random.shuffle(TARGET_JOBS)
 SHUFFLED_JOBS = TARGET_JOBS.copy()
 
-# ==================== 第六步：CSS样式 ====================
 st.markdown("""
     <style>
     .stApp {
@@ -128,43 +125,6 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# ==================== 第七步：模拟函数 ====================
-if not BACKEND_READY:
-    def query_jobs_from_db(keyword=None):
-        return SHUFFLED_JOBS
-
-    def get_jd_from_db(job_name):
-        return f"（模拟JD）{job_name}：熟悉相关技术栈，有项目经验。"
-
-    def handle_upload_and_parse(file_bytes, filename):
-        return {
-            "text": "模拟简历内容",
-            "email": "test@example.com",
-            "major": "计算机",
-            "education": "本科",
-            "city": "北京",
-            "target_city": "上海"
-        }
-
-    def handle_score(job_name, resume_text, jd_content):
-        return {"score": 90, "report": "模拟报告", "advantage": "优点", "shortcoming": "不足"}
-
-    def handle_send_email(email, score, job, apply_result, report="", advantage="", shortcoming=""):
-        return "成功"
-
-    def handle_save_to_db(detail_data):
-        logger.info("模拟数据库写入")
-
-    def handle_log(*args, **kwargs):
-        pass
-
-    def ask_resume_question(resume_text, question):
-        return "模拟分析..."
-
-    def generate_free_reply(history, msg):
-        return "模拟智能回复"
-
-# ==================== 第八步：消息记录函数 ====================
 def add_message(role, content):
     st.session_state.chat_messages.append({"role": role, "content": content})
     try:
@@ -172,11 +132,9 @@ def add_message(role, content):
     except Exception as e:
         logger.error(f"日志记录失败: {e}")
 
-# ==================== 第九步：意图路由 ====================
 def process_user_input(user_input, uploaded_file=None):
     response = ""
 
-    # 文件上传
     if uploaded_file is not None:
         upload_dir = "../01_简历投递收件箱"
         os.makedirs(upload_dir, exist_ok=True)
@@ -202,7 +160,6 @@ def process_user_input(user_input, uploaded_file=None):
 
     text = user_input.strip()
 
-    # 精确岗位名匹配
     target_job = None
     for job in TARGET_JOBS:
         if job in text:
@@ -225,11 +182,9 @@ def process_user_input(user_input, uploaded_file=None):
         st.session_state.current_job = target_job
         return f"📋 **{target_job}** 的岗位要求：\n\n{jd}\n\n如需评估匹配度，请先上传简历。"
 
-    # 投递须知
     if any(k in text for k in ["须知","格式","怎么投递"]):
         return "📌 简历投递须知：\n\n• 支持格式：PDF、DOCX、TXT\n• 请包含联系方式、教育背景、技能特长\n• 自动解析并匹配岗位\n\n请上传简历或告诉我您想投递的岗位。"
 
-    # 查岗位列表
     if any(k in text for k in ["岗位","招聘","在招","职位","有哪些"]):
         jobs = query_jobs_from_db()
         st.session_state.last_shown_jobs = jobs
@@ -237,7 +192,6 @@ def process_user_input(user_input, uploaded_file=None):
         st.session_state.show_job_buttons = True
         return f"我们目前在招的岗位有：\n\n{job_list}\n\n您可以直接点击下方按钮选择岗位。"
 
-    # 匹配评估
     if any(k in text for k in ["匹配","打分","评估","适配"]):
         if not st.session_state.parsed_data:
             return "请先上传您的简历。"
@@ -265,14 +219,12 @@ def process_user_input(user_input, uploaded_file=None):
             f"您可以继续问：\n• 「我的简历有什么不足？」\n• 「怎么优化简历？」\n• 「发送邮件回执」"
         )
 
-    # 智能追问
     if any(k in text for k in ["不足","缺点","短板","优化","改进","建议"]):
         if not st.session_state.parsed_data or not st.session_state.current_report:
             return "请先完成岗位匹配评估。"
         resume_text = st.session_state.parsed_data.get("text","")
         return ask_resume_question(resume_text, "请基于我的简历和上次评估报告，详细分析不足并给出优化建议。")
 
-    # 发送邮件
     if any(k in text for k in ["投递","发送","邮件","回执"]):
         if not st.session_state.current_score or not st.session_state.parsed_data:
             return "请先完成岗位匹配评估。"
@@ -297,7 +249,6 @@ def process_user_input(user_input, uploaded_file=None):
         )
 
         if mail_status == "成功":
-            # 构造完整的 detail_data，包含姓名性别年龄
             parsed = st.session_state.parsed_data or {}
             detail_data = {
                 "投递时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -315,23 +266,18 @@ def process_user_input(user_input, uploaded_file=None):
                 "测评结果": apply_result
             }
 
-            # 存入 MySQL 并获取自增 ID
-            inserted_id = handle_save_to_db(detail_data)
+            inserted_id = save_to_mysql(detail_data)
 
-            # 将 ID 写入 detail_data，供 Excel 使用
             detail_data["ID"] = inserted_id
 
-            # 写入 Excel（仅此一次）
             handle_save_to_excel(detail_data)
 
-            # 写入日志
-            handle_log(
+            write_recruit_log(
                 resume_name=os.path.basename(st.session_state.uploaded_file_path or ""),
                 job_name=job, score=score_int, email=email,
                 mail_status=mail_status, result_status=apply_result
             )
 
-            # 仅录用者生成面试链接
             if apply_result == "录用":
                 interview_url = create_interview_link(
                     email,
@@ -343,7 +289,7 @@ def process_user_input(user_input, uploaded_file=None):
                     candidate_name = parsed.get("name", "")
                     if not candidate_name:
                         candidate_name = email.split("@")[0] if email else "同学"
-                    send_invitation_email(email, candidate_name, interview_url)
+                    send_interview_invitation_email(email, candidate_name, interview_url)
 
                     try:
                         conn = get_db_connection()
@@ -365,7 +311,7 @@ def process_user_input(user_input, uploaded_file=None):
                 response = "✅ 评估报告已发送至您的邮箱。根据本次评估结果，暂未达到面试标准，可优化简历后再次投递。"
 
             return response
-# ==================== 导航栏 ====================
+
 def render_navbar():
     st.markdown("<div class='nav-container'>", unsafe_allow_html=True)
     st.markdown('<h1 class="nav-title">🤖 智聘未来 - AI对话招聘系统</h1>', unsafe_allow_html=True)
@@ -381,9 +327,7 @@ def render_navbar():
             st.session_state.active_tab = "使用帮助"
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ==================== 对话页面 ====================
 def render_chat_page():
-    # 顶部快捷按钮
     st.markdown("<div class='quick-btns'>", unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
     quick_map = {
@@ -401,12 +345,10 @@ def render_chat_page():
                 st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # 对话历史
     for msg in st.session_state.chat_messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # 动态岗位选择按钮
     if st.session_state.get("show_job_buttons") and "last_shown_jobs" in st.session_state:
         st.markdown("**👇 快速选择岗位**")
         jobs = st.session_state.last_shown_jobs
@@ -426,7 +368,6 @@ def render_chat_page():
             st.session_state.show_job_buttons = False
             st.rerun()
 
-    # 追问按钮
     if st.session_state.current_report is not None and st.session_state.current_score is not None:
         st.markdown("**💡 您可以继续问：**")
         c1, c2, c3 = st.columns(3)
@@ -449,7 +390,6 @@ def render_chat_page():
                 add_message("assistant", resp)
                 st.rerun()
 
-    # 输入区域上方的固定快捷按钮
     st.markdown("**📌 常用操作：**")
     c1, c2, c3, c4 = st.columns(4)
     with c1:
@@ -477,7 +417,6 @@ def render_chat_page():
             add_message("assistant", resp)
             st.rerun()
 
-    # 输入框与文件上传
     col_input, col_upload = st.columns([5,1])
     with col_input:
         user_input = st.chat_input("请输入您的问题...")
@@ -512,7 +451,6 @@ def render_help():
     5. 发送邮件回执
     """)
 
-# ==================== 路由 ====================
 render_navbar()
 if st.session_state.active_tab == "对话招聘":
     render_chat_page()

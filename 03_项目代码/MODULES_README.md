@@ -1,111 +1,100 @@
 
 # 智聘未来 AI 招聘系统 - 模块结构说明
 
-## 📋 本项目已重构为模块化结构，以下是各模块的职责划分：
+## 📁 项目架构
 
----
+```
+03_项目代码/
+├── backend/                    # 后端模块
+│   ├── __init__.py             # Python包标识
+│   ├── config.py              # 统一配置管理
+│   ├── utils.py               # 工具函数
+│   ├── database.py            # 数据库操作
+│   ├── ai_scorer.py           # AI评分模块
+│   ├── resume_parser.py       # 简历解析模块
+│   ├── email_service.py       # 邮件服务模块
+│   ├── excel_service.py       # Excel操作模块
+│   ├── interview_service.py   # 面试服务模块
+│   └── log_system.py          # 日志系统模块
+│
+├── pages/                     # 前端页面
+│   ├── main/                  # 主应用页面
+│   │   ├── app.py             # 校园招聘投递页面
+│   │   └── chat_main.py       # AI对话招聘主页面
+│   └── interview_page.py      # AI面试页面
+│
+├── agent.py                   # 兼容旧接口（已废弃）
+├── agent_service.py           # 兼容旧接口（已废弃）
+├── gsh.py                     # 工具脚本
+├── import_jd_to_mysql.py      # JD导入脚本
+└── text_data.py               # 文本数据
+```
 
-## 📁 核心模块
+## 📦 模块职责说明
 
-### 1. **config.py** - 配置管理模块
-- 统一管理所有配置项
-- 环境变量加载
-- 路径配置
-- MySQL配置
-- API配置
-- 邮件配置
-- 面试配置
+### 后端模块 (backend/)
 
-### 2. **utils.py** - 工具函数模块
-- 简历文本读取（txt/docx/pdf格式
-- 邮箱、性别、年龄提取
-- 专业、学历、城市、城市提取
-- JD内容读取
-- 文本摘要（精简
-- 通用工具函数
+| 模块 | 职责 | 核心功能 |
+|------|------|----------|
+| `config.py` | 统一配置管理 | 数据库连接、路径配置、API配置、邮箱配置 |
+| `utils.py` | 工具函数 | 文本提取、文件读写、文本摘要 |
+| `database.py` | 数据库操作 | MySQL连接、CRUD操作 |
+| `ai_scorer.py` | AI评分 | LLM调用、简历评分、智能问答 |
+| `resume_parser.py` | 简历解析 | 文件解析、信息提取 |
+| `email_service.py` | 邮件服务 | 发送邮件、面试邀请 |
+| `excel_service.py` | Excel操作 | 数据导出、报表生成 |
+| `interview_service.py` | 面试服务 | 面试链接、题目生成、评分 |
+| `log_system.py` | 日志系统 | 操作日志、对话日志 |
 
-### 3. **database.py** - 数据库操作模块
-- 数据库连接管理
-- 简历记录保存
-- 岗位查询
-- JD查询
-- 评分标准查询
+### 前端页面 (pages/)
 
-### 4. **ai_scorer.py** - AI 评分模块
-- LLM API调用
-- 简历评分
-- 结构化评分返回
-- 智能追问
-- 自由对话
+| 页面 | 用途 |
+|------|------|
+| `pages/main/app.py` | 校园招聘投递入口 |
+| `pages/main/chat_main.py` | AI对话招聘主界面 |
+| `pages/interview_page.py` | AI面试页面 |
 
-### 5. **resume_parser.py** - 简历解析模块
-- 简历上传解析
-- 信息提取（姓名
-- 正则+LLM双模式
-- 临时文件管理
+## 🔄 迁移说明
 
-### 6. **email_service.py** - 邮件服务模块
-- 发送邮件发送
-- 面试邀请发送
-- 面试结果发送
-- 邮件状态管理
-- 日志记录
+### 已废弃文件
 
-### 7. **excel_service.py** - Excel操作模块
-- 数据保存到Excel
-- 面试分数更新
-- 跨平台路径处理
+- `agent.py` - 保留用于兼容旧代码，新代码应直接从 `backend/` 导入
+- `agent_service.py` - 保留用于兼容旧代码，新代码应直接从 `backend/` 导入
 
-### 8. **interview_service.py** - 面试服务模块
-- Token生成/校验
-- 面试题目生成
-- 面试状态管理
-- 面试评分
-- 题目更新
+### 新代码导入方式
 
-### 9. **log_system.py** - 日志系统模块
-- 对话日志
-- 招聘日志
-- 邮件日志
+```python
+# 从 backend 模块导入
+from backend.config import UPLOAD_FOLDER
+from backend.database import query_jobs_from_db
+from backend.ai_scorer import handle_score
+```
 
----
+## 🚀 启动方式
 
-## 📁 兼容模块（保持原有接口）
+### 主应用（对话招聘）
+```bash
+streamlit run pages/main/chat_main.py
+```
 
-### agent.py
-- 对外保持原有process_new_files接口
-- 内部调用新模块
-- 兼容旧代码
+### 校园招聘页面
+```bash
+streamlit run pages/main/app.py
+```
 
-### agent_service.py
-- 保持所有原有接口保持不变
-- 内部调用新模块
-- 前端无需修改
+### 面试页面（通过邮件链接访问）
+```bash
+streamlit run pages/interview_page.py?token=xxx
+```
 
----
+## 📋 依赖安装
 
-## 📁 前端页面
+```bash
+pip install -r requirements.txt
+```
 
-- **app.py** - 旧版投递页面（保持不变
-- **chat_main.py** - 对话式招聘页面（保持不变）
-- **pages/interview_page.py** - 面试页面（保持不变）
+## ⚠️ 注意事项
 
----
-
-## 📁 其他文件
-
-- **gsh.py** - 原有工具脚本
-- **import_jd_to_mysql.py** - JD导入脚本
-- **text_data.py** - 数据生成脚本
-
----
-
-## ✅ 重构优点
-
-1. **单一职责**：每个模块只负责一项功能
-2. **易于维护**：修改某个功能只需要修改对应模块
-3. **易于测试**：可以独立测试每个模块
-4. **代码复用**：通用功能封装在utils中
-5. **配置统一**：所有配置在config.py统一管理
-6. **接口不变**：对外接口保持不变，前端无需修改
-
+1. 确保已配置 MySQL 数据库连接信息（在 `backend/config.py` 中）
+2. 确保已配置阿里云百炼 API 密钥（在 `backend/config.py` 中）
+3. 确保已配置邮件发送账号（在 `backend/config.py` 中）

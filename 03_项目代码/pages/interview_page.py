@@ -3,23 +3,22 @@ import sys
 import os
 import json
 import threading
-from agent_service import update_module_questions
-# 添加当前目录到路径
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from agent_service import (
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from backend.interview_service import (
     verify_interview_token,
     update_interview_status,
-    read_resume_text_from_file,
-    get_jd_from_db,
     generate_questions_for_module,
-    score_interview,
-    call_llm
+    update_module_questions,
+    score_interview
 )
+from backend.utils import read_resume_text
+from backend.database import get_jd_from_db
+from backend.ai_scorer import call_llm
 
 st.set_page_config(page_title="智聘未来 - AI面试", page_icon="🎤", layout="centered", initial_sidebar_state="collapsed")
 
-# 页面样式
 st.markdown("""
     <style>
     .stApp { background-color: #fcfaf2; font-family: "Microsoft YaHei", sans-serif; }
@@ -28,13 +27,11 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 获取token
 token = st.query_params.get("token", None)
 if not token:
     st.error("❌ 缺少面试链接参数，请从邮件中的链接进入。")
     st.stop()
 
-# 校验token
 is_valid, record, msg = verify_interview_token(token)
 if not is_valid:
     st.error(f"❌ {msg}")
@@ -48,7 +45,6 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# 状态初始化
 if "interview_started" not in st.session_state:
     st.session_state.interview_started = False
     st.session_state.current_module = 0
@@ -58,15 +54,13 @@ if "interview_started" not in st.session_state:
     st.session_state.resume_text = ""
     st.session_state.jd_content = ""
 
-# 读取简历和JD（仅一次）
 if not st.session_state.resume_text and record.get('resume_id'):
     resume_path = f"../01_简历投递收件箱/{record['resume_id']}"
     if os.path.exists(resume_path):
-        st.session_state.resume_text = read_resume_text_from_file(resume_path)
+        st.session_state.resume_text = read_resume_text(resume_path)
 if not st.session_state.jd_content and record.get('job_name'):
     st.session_state.jd_content = get_jd_from_db(record['job_name'])
 
-# 面试未开始，显示须知
 if not st.session_state.interview_started:
     st.markdown("""
     ### 📋 面试须知
@@ -81,14 +75,12 @@ if not st.session_state.interview_started:
         st.rerun()
     st.stop()
 
-# 面试进行中
 MODULE_NAMES = ["基础知识", "项目经历", "实习经历", "技能实战", "技能进阶实战"]
 current_idx = st.session_state.current_module
 
 if current_idx < len(MODULE_NAMES):
     module_name = MODULE_NAMES[current_idx]
 
-    # 生成题目（如果还没有）
     if not st.session_state.module_questions:
         st.session_state.module_questions = generate_questions_for_module(
             module_name, st.session_state.resume_text, st.session_state.jd_content
@@ -130,14 +122,11 @@ if current_idx < len(MODULE_NAMES):
             st.session_state.module_answers = []
             st.rerun()
 else:
-    # 面试完成
     st.markdown("### 🎉 面试完成！")
     st.markdown("感谢您的参与，面试结果将通过邮件通知。")
     if "submitted" not in st.session_state:
         if st.button("📤 提交面试结果", type="primary", use_container_width=True):
-            # 先标记完成，防止重复提交
             update_interview_status(token, 'completed')
-            # 后台线程异步评分
             threading.Thread(
                 target=score_interview,
                 args=(token, st.session_state.all_answers, record),
