@@ -16,6 +16,10 @@ def call_llm(messages, temperature=0.3):
     :param temperature: 温度参数
     :return: 模型回复内容
     """
+    # 检查 API key 是否配置
+    if not API_CONFIG['key'] or API_CONFIG['key'] == 'your_api_key_here':
+        return "⚠️ 错误：未配置大模型 API Key\n\n请在【04_数据文件/.env】文件中配置您的阿里云百炼 API Key。\n\n配置步骤：\n1. 登录阿里云百炼平台获取 API Key\n2. 编辑文件：04_数据文件/.env\n3. 将 API_KEY=your_api_key_here 替换为您的实际 API Key"
+    
     headers = {
         "Authorization": "Bearer " + API_CONFIG['key'],
         "Content-Type": "application/json"
@@ -45,6 +49,11 @@ def ai_score_resume_with_jd(resume_text, jd_content, job_name="匹配到的岗�
     :param job_name: 岗位名称
     :return: (分数, 完整报告)
     """
+    # 检查 API key 是否配置
+    if not API_CONFIG['key'] or API_CONFIG['key'] == 'your_api_key_here':
+        error_msg = "⚠️ 错误：未配置大模型 API Key\n\n请在【04_数据文件/.env】文件中配置您的阿里云百炼 API Key。\n\n配置步骤：\n1. 登录阿里云百炼平台获取 API Key\n2. 编辑文件：04_数据文件/.env\n3. 将 API_KEY=your_api_key_here 替换为您的实际 API Key"
+        return 0, error_msg
+    
     prompt = "你是专业HR面试官，根据【岗位JD】对简历进行严格评分（满分100）。\n\n【岗位名称】\n" + job_name + "\n\n【岗位JD要求】\n" + jd_content + "\n\n【简历内容】\n" + resume_text[:3000] + "\n\n请严格按以下格式输出：\n\n【简历评分】\n分数：xx\n\n【分项评分标准】\n1. 专业匹配度：xx分\n2. 技能匹配度：xx分\n3. 项目经验匹配度：xx分\n4. 综合素养：xx分\n\n【简历优势】\nxxx\n\n【简历不足与改进建议】\nxxx"
 
     headers = {
