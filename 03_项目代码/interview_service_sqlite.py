@@ -155,7 +155,36 @@ def generate_questions_for_module(module_name, resume_text, jd_content):
     """
     questions_num = QUESTIONS_PER_MODULE
 
-    prompt = f"你是一位资深技术面试官，请根据岗位JD和候选人简历，为【{module_name}】模块生成{questions_num}道面试题。\n\n【岗位JD】\n{jd_content}\n\n【候选人简历】\n{resume_text[:2000]}\n\n请按照以下JSON格式输出：\n[\n  {{\"question\": \"问题内容\", \"reference_answer\": \"参考答案要点\", \"scoring_points\": [\"评分点1\", \"评分点2\"]}},\n  ...\n]"
+    # 根据不同模块，定制不同的提示词
+    module_specific_instructions = {
+        "项目经历": "请重点围绕简历中提到的具体项目进行深度提问，比如技术难点、解决方案、个人贡献等。",
+        "实习经历": "请围绕实习期间的工作内容、收获和成长进行提问。",
+        "基础知识": "结合岗位JD和简历背景，考察相关的基础知识。",
+        "技能实战": "围绕岗位所需技能和简历中提到的技能，设计场景化问题。",
+        "技能进阶实战": "考察候选人的技术深度、学习能力和未来规划。"
+    }
+    
+    instruction = module_specific_instructions.get(module_name, "根据JD和简历进行针对性提问。")
+    
+    prompt = f"""你是一位资深技术面试官，请根据以下岗位JD和候选人简历，为【{module_name}】模块生成{questions_num}道面试题。
+
+【重要要求】
+- 问题必须紧密结合候选人简历中的具体内容！
+- 如果是项目经历模块，请直接针对简历中提到的项目进行提问！
+- 如果是实习经历模块，请直接针对简历中提到的实习内容提问！
+- {instruction}
+
+【岗位JD】
+{jd_content}
+
+【候选人简历】
+{resume_text[:2500]}
+
+请按照以下JSON格式输出：
+[
+  {{\"question\": \"问题内容\", \"reference_answer\": \"参考答案要点\", \"scoring_points\": [\"评分点1\", \"评分点2\"]}},
+  ...
+]"""
 
     try:
         response = call_llm([{"role": "user", "content": prompt}], temperature=0.3)
