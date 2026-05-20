@@ -16,6 +16,9 @@ def call_llm(messages, temperature=0.3):
     :param temperature: 温度参数
     :return: 模型回复内容
     """
+    if not API_CONFIG['key'] or API_CONFIG['key'] == 'your_api_key_here':
+        return "⚠️ 错误：未配置大模型 API Key\n\n请在【04_数据文件/.env】文件中配置有效的 API_KEY，或联系管理员获取。"
+    
     headers = {
         "Authorization": "Bearer " + API_CONFIG['key'],
         "Content-Type": "application/json"
