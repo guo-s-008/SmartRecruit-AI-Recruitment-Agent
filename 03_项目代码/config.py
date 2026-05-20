@@ -24,7 +24,14 @@ LOG_ROOT = os.path.join(BASE_DIR, "07_系统日志")
 # Excel 数据文件路径（优先使用环境变量，没有则使用默认相对路径）
 EXCEL_DATA_PATH = os.getenv("EXCEL_DATA_PATH", os.path.join(BASE_DIR, "04_数据文件", "recruitment_data.xlsx"))
 
-# ===================== MySQL 数据库配置 =====================
+# ===================== 数据库配置 =====================
+# 使用SQLite（默认，不需要服务器）
+USE_SQLITE = True
+
+# SQLite 数据库路径
+SQLITE_DB_PATH = os.path.join(BASE_DIR, "04_数据文件", "recruitment.db")
+
+# MySQL 数据库配置
 MYSQL_CONFIG = {
     "host": os.getenv("MYSQL_HOST", "localhost"),
     "port": int(os.getenv("MYSQL_PORT", 3306)),
