@@ -6,26 +6,29 @@ from datetime import datetime
 import logging
 import sys
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# 设置 Python 路径以找到后端模块
+current_file_dir = os.path.dirname(os.path.abspath(__file__))  # pages/main/
+project_root = os.path.dirname(os.path.dirname(current_file_dir))  # 03_项目代码/
+sys.path.insert(0, project_root)
 
-from backend.log_system import write_dialog_log
-from backend.email_service import send_interview_invitation_email
-from backend.excel_service import handle_save_to_excel
-from backend.database import (
+from log_system import write_dialog_log
+from email_service import send_interview_invitation_email
+from excel_service import handle_save_to_excel
+from database import (
     query_jobs_from_db,
     get_jd_from_db,
     save_to_mysql,
     get_db_connection
 )
-from backend.resume_parser import handle_upload_and_parse
-from backend.ai_scorer import (
+from resume_parser import handle_upload_and_parse
+from ai_scorer import (
     handle_score,
     ask_resume_question,
     generate_free_reply
 )
-from backend.email_service import handle_send_email
-from backend.log_system import write_recruit_log
-from backend.interview_service import create_interview_link
+from email_service import handle_send_email
+from log_system import write_recruit_log
+from interview_service import create_interview_link
 
 BACKEND_READY = True
 

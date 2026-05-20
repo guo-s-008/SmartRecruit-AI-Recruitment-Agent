@@ -4,9 +4,12 @@ import random
 from datetime import datetime
 import sys
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# 设置 Python 路径以找到后端模块
+current_file_dir = os.path.dirname(os.path.abspath(__file__))  # pages/main/
+project_root = os.path.dirname(os.path.dirname(current_file_dir))  # 03_项目代码/
+sys.path.insert(0, project_root)
 
-from backend.config import UPLOAD_FOLDER
+from config import UPLOAD_FOLDER
 
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = "校园招聘"

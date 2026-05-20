@@ -45,34 +45,7 @@ def ai_score_resume_with_jd(resume_text, jd_content, job_name="匹配到的岗�
     :param job_name: 岗位名称
     :return: (分数, 完整报告)
     """
-    prompt = "你是专业HR面试官，根据【岗位JD】对简历进行严格评分（满分100）。
-
-【岗位名称】
-{job_name}
-
-【岗位JD要求】
-{jd_content}
-
-【简历内容】
-{resume_text[:3000]}
-
-请严格按以下格式输出：
-
-【简历评分】
-分数：xx
-
-【分项评分标准】
-1. 专业匹配度：xx分
-2. 技能匹配度：xx分
-3. 项目经验匹配度：xx分
-4. 综合素养：xx分
-
-【简历优势】
-xxx
-
-【简历不足与改进建议】
-xxx
-""".format(job_name=job_name, jd_content=jd_content, resume_text=resume_text)
+    prompt = "你是专业HR面试官，根据【岗位JD】对简历进行严格评分（满分100）。\n\n【岗位名称】\n" + job_name + "\n\n【岗位JD要求】\n" + jd_content + "\n\n【简历内容】\n" + resume_text[:3000] + "\n\n请严格按以下格式输出：\n\n【简历评分】\n分数：xx\n\n【分项评分标准】\n1. 专业匹配度：xx分\n2. 技能匹配度：xx分\n3. 项目经验匹配度：xx分\n4. 综合素养：xx分\n\n【简历优势】\nxxx\n\n【简历不足与改进建议】\nxxx"
 
     headers = {
         "Authorization": "Bearer " + API_CONFIG['key'],
@@ -104,23 +77,9 @@ xxx
         score = int(num_list[0])
 
     if score >= 85:
-        final_msg = """
-——————————————
-【录用结果通知】
-恭喜同学，你的简历综合得分：{score}分，
-你的简历符合岗位录用标准，
-欢迎加入智聘未来团队，
-后续将通过邮件通知面试安排，请耐心等待。
-""".format(score=score)
+        final_msg = "\n——————————————\n【录用结果通知】\n恭喜同学，你的简历综合得分：" + str(score) + "分，\n你的简历符合岗位录用标准，\n欢迎加入智聘未来团队，\n后续将通过邮件通知面试安排，请耐心等待。"
     else:
-        final_msg = """
-——————————————
-【录用结果通知】
-很遗憾，你的简历综合得分：{score}分，
-暂时与岗位要求存在差距，
-建议结合改进建议优化简历，
-欢迎再次投递。
-""".format(score=score)
+        final_msg = "\n——————————————\n【录用结果通知】\n很遗憾，你的简历综合得分：" + str(score) + "分，\n暂时与岗位要求存在差距，\n建议结合改进建议优化简历，\n欢迎再次投递。"
 
     return score, content + final_msg
 
@@ -135,67 +94,12 @@ def handle_score(job_name, resume_text, jd_content, scoring_criteria=""):
     :return: {score, report, advantage, shortcoming}
     """
     criteria_text = scoring_criteria if scoring_criteria else "请按专业匹配度、技能匹配度、项目经验匹配度、学历/经验匹配度四个维度自主评分，满分100。"
-    prompt = "你是专业HR面试官，请根据【岗位JD】和【评分标准】对候选人简历进行严格评分（满分100）。
-
-【岗位名称】{job_name}
-【岗位JD要求】{jd_content}
-【评分标准】{criteria_text}
-
-【简历内容】{resume_text[:3000]}
-
-请严格按照以下格式输出完整的评分报告（这个报告将直接作为邮件正文发送给求职者，请务必详细、专业）：
-
-【简历评分】
-分数：xx
-
-【分项评分标准】
-1. 专业匹配度：xx分
-2. 技能匹配度：xx分
-3. 项目经验匹配度：xx分
-4. 综合素养：xx分
-
-【简历优势】
-- 具体列出与JD匹配的亮点，每条用"- "开头，至少写3条，要结合简历中的具体内容
-- 每条优势都要有具体的技能/项目/经验支撑
-
-【简历不足与改进建议】
-- 具体列出与JD要求有明显差距的地方，每条用"- "开头，至少写3条
-- 针对每条不足给出可操作的改进建议
-
-在报告最后，额外返回一个 JSON 片段（仅此片段，不要混入正文）：
-{\"short_advantage\": \"简历优点摘要（50字以内，用于网页快速展示）, \"short_shortcoming\": \"简历不足摘要（50字以内，用于网页快速展示）\"}
-""".format(job_name=job_name, jd_content=jd_content, criteria_text=criteria_text, resume_text=resume_text)
+    prompt = "你是专业HR面试官，请根据【岗位JD】和【评分标准】对候选人简历进行严格评分（满分100）。\n\n【岗位名称】" + job_name + "\n【岗位JD要求】" + jd_content + "\n【评分标准】" + criteria_text + "\n\n【简历内容】" + resume_text[:3000] + "\n\n请严格按照以下格式输出完整的评分报告（这个报告将直接作为邮件正文发送给求职者，请务必详细、专业）：\n\n【简历评分】\n分数：xx\n\n【分项评分标准】\n1. 专业匹配度：xx分\n2. 技能匹配度：xx分\n3. 项目经验匹配度：xx分\n4. 综合素养：xx分\n\n【简历优势】\n- 具体列出与JD匹配的亮点，每条用\"- \"开头，至少写3条，要结合简历中的具体内容\n- 每条优势都要有具体的技能/项目/经验支撑\n\n【简历不足与改进建议】\n- 具体列出与JD要求有明显差距的地方，每条用\"- \"开头，至少写3条\n- 针对每条不足给出可操作的改进建议"
     content = call_llm([{"role": "user", "content": prompt}], temperature=0.1)
 
     short_advantage = ""
     short_shortcoming = ""
     full_report = content
-
-    lines = content.strip().split("\n")
-    json_str = None
-    for line in reversed(lines):
-        line = line.strip()
-        if line.startswith("{") and line.endswith("}"):
-            json_str = line
-            break
-
-    if not json_str:
-        try:
-            start = content.rfind("{")
-            end = content.rfind("}")
-            if start != -1 and end != -1 and end > start:
-                json_str = content[start:end + 1]
-        except:
-            pass
-
-    if json_str:
-        try:
-            short_data = json.loads(json_str)
-            short_advantage = short_data.get("short_advantage", "")
-            short_shortcoming = short_data.get("short_shortcoming", "")
-            full_report = content.replace(json_str, "").strip()
-        except:
-            pass
 
     score = 0
     match = re.findall(r"分数[：:]\s*(\d+)", full_report)
@@ -231,15 +135,7 @@ def ask_resume_question(resume_text, question):
     :param question: 用户问题
     :return: AI 回复
     """
-    prompt = "你是一个专业招聘顾问，根据候选人简历内容回答其问题。
-
-【简历内容】
-{resume_text[:2000]}
-
-【候选人问题】
-{question}
-
-请给出具体、有针对性、可操作的回答。如果简历中缺乏相关信息，也请诚实指出。""".format(resume_text=resume_text, question=question)
+    prompt = "你是一个专业招聘顾问，根据候选人简历内容回答其问题。\n\n【简历内容】\n" + resume_text[:2000] + "\n\n【候选人问题】\n" + question + "\n\n请给出具体、有针对性、可操作的回答。如果简历中缺乏相关信息，也请诚实指出。"
     return call_llm([{"role": "user", "content": prompt}], temperature=0.5)
 
 
@@ -252,22 +148,9 @@ def generate_free_reply(history_list, user_input):
     """
     recent = history_list[-6:] if len(history_list) > 6 else history_list
     history_text = "\n".join(
-        ["{role}: {content}".format(role=("用户" if m['role'] == 'user' else '助手'), content=m['content']) for m in recent
+        [("用户: " + m['content']) if m['role'] == 'user' else ("助手: " + m['content']) for m in recent
     )
 
-    prompt = "你是一个专业的智聘未来招聘助手。根据对话历史，用自然、友好的语气回应用户，
-并尝试引导用户使用以下功能：
-- 查看在招岗位
-- 了解岗位具体要求
-- 上传简历
-- 评估简历与岗位的匹配度
-- 获取简历优化建议
-
-不要编造虚构信息。如果用户想了解岗位，提醒他们可以直接说出岗位名称。
-当前对话历史：
-{history_text}
-用户最新输入：{user_input}
-
-请直接给出助手回复：""".format(history_text=history_text, user_input=user_input)
+    prompt = "你是一个专业的智聘未来招聘助手。根据对话历史，用自然、友好的语气回应用户，并尝试引导用户使用以下功能：\n- 查看在招岗位\n- 了解岗位具体要求\n- 上传简历\n- 评估简历与岗位的匹配度\n- 获取简历优化建议\n\n不要编造虚构信息。如果用户想了解岗位，提醒他们可以直接说出岗位名称。\n当前对话历史：\n" + history_text + "\n用户最新输入：" + user_input + "\n\n请直接给出助手回复："
 
     return call_llm([{"role": "user", "content": prompt}], temperature=0.7)

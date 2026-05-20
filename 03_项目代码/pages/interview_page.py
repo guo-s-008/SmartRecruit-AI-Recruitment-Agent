@@ -4,18 +4,21 @@ import os
 import json
 import threading
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# 设置 Python 路径以找到后端模块
+current_file_dir = os.path.dirname(os.path.abspath(__file__))  # pages/
+project_root = os.path.dirname(current_file_dir)  # 03_项目代码/
+sys.path.insert(0, project_root)
 
-from backend.interview_service import (
+from interview_service import (
     verify_interview_token,
     update_interview_status,
     generate_questions_for_module,
     update_module_questions,
     score_interview
 )
-from backend.utils import read_resume_text
-from backend.database import get_jd_from_db
-from backend.ai_scorer import call_llm
+from utils import read_resume_text
+from database import get_jd_from_db
+from ai_scorer import call_llm
 
 st.set_page_config(page_title="智聘未来 - AI面试", page_icon="🎤", layout="centered", initial_sidebar_state="collapsed")
 
