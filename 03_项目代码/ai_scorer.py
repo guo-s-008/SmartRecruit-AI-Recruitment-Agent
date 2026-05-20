@@ -148,7 +148,7 @@ def generate_free_reply(history_list, user_input):
     """
     recent = history_list[-6:] if len(history_list) > 6 else history_list
     history_text = "\n".join(
-        [("用户: " + m['content']) if m['role'] == 'user' else ("助手: " + m['content']) for m in recent
+        [("用户: " + m['content']) if m['role'] == 'user' else ("助手: " + m['content']) for m in recent]
     )
 
     prompt = "你是一个专业的智聘未来招聘助手。根据对话历史，用自然、友好的语气回应用户，并尝试引导用户使用以下功能：\n- 查看在招岗位\n- 了解岗位具体要求\n- 上传简历\n- 评估简历与岗位的匹配度\n- 获取简历优化建议\n\n不要编造虚构信息。如果用户想了解岗位，提醒他们可以直接说出岗位名称。\n当前对话历史：\n" + history_text + "\n用户最新输入：" + user_input + "\n\n请直接给出助手回复："
