@@ -23,16 +23,26 @@ def call_llm(messages, temperature=0.3):
         "Authorization": "Bearer " + API_CONFIG['key'],
         "Content-Type": "application/json"
     }
+    
+    # 适配阿里云百炼API v1格式
     payload = {
         "model": API_CONFIG['model'],
-        "messages": messages,
-        "temperature": temperature
+        "input": {
+            "messages": messages
+        },
+        "parameters": {
+            "temperature": temperature
+        }
     }
+    
     try:
         resp = requests.post(API_CONFIG['url'], headers=headers, json=payload, timeout=35)
         resp.raise_for_status()
         data = resp.json()
-        if "choices" in data and len(data["choices"]) > 0:
+        
+        if "output" in data and "text" in data["output"]:
+            return data["output"]["text"]
+        elif "choices" in data and len(data["choices"]) > 0:
             return data["choices"][0]["message"]["content"]
         else:
             return "API返回异常：" + str(data)
