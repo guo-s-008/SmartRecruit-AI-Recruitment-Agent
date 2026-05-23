@@ -10,9 +10,10 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from config import EMAIL_CONFIG, LOG_ROOT
 from utils import summarize_text
+from log_system import write_email_log
 
 
-def send_email(receive_email, score, job_title, apply_result, report="", advantage="", shortcoming=""):
+def send_email(receive_email, score, job_title, apply_result, report="", advantage="", shortcoming="", candidate_name=""):
     """
     发送简历评分邮件（求职者和HR双端）
     :param receive_email: 求职者邮箱
@@ -22,6 +23,7 @@ def send_email(receive_email, score, job_title, apply_result, report="", advanta
     :param report: 完整报告（求职者用）
     :param advantage: 优势（HR用）
     :param shortcoming: 不足（HR用）
+    :param candidate_name: 候选人姓名
     :return: 邮件状态（成功/失败）
     """
     HR_EMAIL = EMAIL_CONFIG.get("hr_email")
@@ -61,27 +63,16 @@ def send_email(receive_email, score, job_title, apply_result, report="", advanta
     print(hr_content)
     print("=" * 80 + "\n")
 
-    log_dir = os.path.join(LOG_ROOT, "log_eminfo")
-    os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, f"email_{time.strftime('%Y-%m-%d')}.log")
-    log_content = f"""
-[时间] {time.strftime('%Y-%m-%d %H:%M:%S')}
-[收件人] {receive_email}
-[HR邮箱] {HR_EMAIL}
-[得分] {score}
-[结果] {apply_result}
-
------- 求职者邮件 ----
-{applicant_content}
-
------- HR邮件 ----
-{hr_content}
-
-{'=' * 60}
-"""
-    with open(log_file, "a", encoding="utf-8") as f:
-        f.write(log_content)
-    print(f"📝 邮件内容已保存至日志：{log_file}")
+    # 使用新的邮件日志记录功能（按初筛结果分类）
+    log_file = write_email_log(
+        candidate_name=candidate_name or "未知",
+        email=receive_email,
+        job_name=job_title,
+        score=score,
+        result=apply_result,
+        applicant_email_content=applicant_content,
+        hr_email_content=hr_content
+    )
 
     try:
         if not receive_email:
@@ -240,24 +231,17 @@ def send_interview_invitation_email(email, candidate_name, interview_url):
     print(content)
     print("=" * 80 + "\n")
 
-    log_dir = os.path.join(LOG_ROOT, "log_eminfo")
-    os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, f"email_{time.strftime('%Y-%m-%d')}.log")
-    log_content = f"""
-[时间] {time.strftime('%Y-%m-%d %H:%M:%S')}
-[邮件类型] 面试邀请
-[收件人] {email}
-[候选人] {candidate_name}
-[面试链接] {interview_url}
-
------- 邮件内容 ----
-{content}
-
-{'=' * 60}
-"""
-    with open(log_file, "a", encoding="utf-8") as f:
-        f.write(log_content)
-    print(f"📝 面试邀请邮件已保存至日志：{log_file}")
+    # 面试邀请邮件也记录到日志
+    from log_system import write_email_log
+    write_email_log(
+        candidate_name=candidate_name,
+        email=email,
+        job_name="AI面试邀请",
+        score=0,
+        result="面试邀请",
+        applicant_email_content=content,
+        hr_email_content=f"[面试邀请] 已发送面试链接给 {candidate_name} ({email})"
+    )
 
     try:
         msg = MIMEMultipart()
@@ -277,7 +261,7 @@ def send_interview_invitation_email(email, candidate_name, interview_url):
         return False
 
 
-def handle_send_email(receive_email, score, job_title, apply_result, report="", advantage="", shortcoming=""):
+def handle_send_email(receive_email, score, job_title, apply_result, report="", advantage="", shortcoming="", candidate_name=""):
     """
     封装的发送邮件接口（供外部调用），包含摘要精简
     :param receive_email: 求职者邮箱
@@ -287,9 +271,9 @@ def handle_send_email(receive_email, score, job_title, apply_result, report="", 
     :param report: 完整报告
     :param advantage: 优势
     :param shortcoming: 不足
+    :param candidate_name: 候选人姓名
     :return: 邮件状态
     """
     short_adv = summarize_text(advantage, 100) if advantage else ""
     short_short = summarize_text(shortcoming, 100) if shortcoming else ""
-    return send_email(receive_email, score, job_title, apply_result, report, short_adv, short_short)
-
+    return send_email(receive_email, score, job_title, apply_result, report, short_adv, short_short, candidate_name)

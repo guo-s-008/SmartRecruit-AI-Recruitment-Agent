@@ -25,19 +25,28 @@ LOG_ROOT = os.path.join(BASE_DIR, "07_系统日志")
 EXCEL_DATA_PATH = os.getenv("EXCEL_DATA_PATH", os.path.join(BASE_DIR, "04_数据文件", "recruitment_data.xlsx"))
 
 # ===================== 数据库配置 =====================
-# 使用SQLite（默认，不需要服务器）
+# 使用SQLite数据库（无需服务器，开箱即用）
+# 如需使用MySQL，请将USE_SQLITE改为False，并配置.env文件中的MySQL连接信息
 USE_SQLITE = True
 
 # SQLite 数据库路径
 SQLITE_DB_PATH = os.path.join(BASE_DIR, "04_数据文件", "recruitment.db")
 
-# MySQL 数据库配置
+# MySQL 数据库配置（生产环境使用）
+# 配置说明：
+# 1. 将 USE_SQLITE 改为 False
+# 2. 在 .env 文件中配置以下内容：
+#    MYSQL_HOST=localhost
+#    MYSQL_PORT=3306
+#    MYSQL_USER=root
+#    MYSQL_PASSWORD=your_password
+#    MYSQL_DATABASE=recruitment
 MYSQL_CONFIG = {
     "host": os.getenv("MYSQL_HOST", "localhost"),
     "port": int(os.getenv("MYSQL_PORT", 3306)),
-    "user": os.getenv("MYSQL_USER"),
-    "password": os.getenv("MYSQL_PASSWORD"),
-    "database": os.getenv("MYSQL_DATABASE"),
+    "user": os.getenv("MYSQL_USER", "root"),
+    "password": os.getenv("MYSQL_PASSWORD", ""),
+    "database": os.getenv("MYSQL_DATABASE", "recruitment"),
     "charset": os.getenv("MYSQL_CHARSET", "utf8mb4")
 }
 
@@ -83,4 +92,3 @@ TARGET_JOBS = [
 # ===================== 自动创建必要目录 =====================
 for folder_path in [UPLOAD_FOLDER, PROCESSED_FOLDER, JD_FOLDER, LOG_ROOT]:
     os.makedirs(folder_path, exist_ok=True)
-

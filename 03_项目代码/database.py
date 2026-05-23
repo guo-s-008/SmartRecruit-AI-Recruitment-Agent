@@ -12,7 +12,8 @@ if USE_SQLITE:
         handle_save_to_db,
         query_jobs_from_db,
         get_jd_from_db,
-        get_scoring_criteria_from_db
+        get_scoring_criteria_from_db,
+        init_tables
     )
 else:
     import pymysql
@@ -33,6 +34,104 @@ else:
             charset=MYSQL_CONFIG["charset"]
         )
 
+    def init_tables():
+        """
+        初始化MySQL数据库表
+        """
+        # 先创建数据库（如果不存在）
+        try:
+            conn_temp = pymysql.connect(
+                host=MYSQL_CONFIG["host"],
+                port=MYSQL_CONFIG["port"],
+                user=MYSQL_CONFIG["user"],
+                password=MYSQL_CONFIG["password"],
+                charset=MYSQL_CONFIG["charset"]
+            )
+            cursor_temp = conn_temp.cursor()
+            cursor_temp.execute(f"CREATE DATABASE IF NOT EXISTS {MYSQL_CONFIG['database']} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
+            cursor_temp.close()
+            conn_temp.close()
+            print(f"✅ 数据库 {MYSQL_CONFIG['database']} 已创建或已存在")
+        except Exception as e:
+            print(f"❌ 创建数据库失败：{e}")
+            return
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # 1. 创建岗位表
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS job_positions (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                job_name VARCHAR(200) UNIQUE NOT NULL COMMENT '岗位名称',
+                jd_content TEXT COMMENT '岗位JD内容',
+                scoring_criteria TEXT COMMENT '评分标准',
+                education VARCHAR(100) COMMENT '学历要求',
+                city VARCHAR(100) COMMENT '工作城市',
+                is_intern TINYINT DEFAULT 0 COMMENT '是否实习岗',
+                hiring_count INT DEFAULT 1 COMMENT '招聘人数',
+                is_open TINYINT DEFAULT 1 COMMENT '是否开放',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='岗位信息表'
+        ''')
+
+        # 2. 创建简历记录表
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS resume_record (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                deliver_time DATETIME COMMENT '投递时间',
+                name VARCHAR(100) COMMENT '姓名',
+                gender VARCHAR(20) COMMENT '性别',
+                age VARCHAR(20) COMMENT '年龄',
+                education VARCHAR(100) COMMENT '学历',
+                major VARCHAR(200) COMMENT '专业',
+                city VARCHAR(100) COMMENT '所在城市',
+                target_city VARCHAR(200) COMMENT '意向城市',
+                job VARCHAR(200) COMMENT '应聘岗位',
+                score INT COMMENT '初筛得分',
+                email VARCHAR(200) COMMENT '邮箱',
+                mail_status VARCHAR(50) COMMENT '邮件状态',
+                result VARCHAR(50) COMMENT '初筛结果',
+                interview_token VARCHAR(200) COMMENT '面试Token',
+                interview_link VARCHAR(500) COMMENT '面试链接',
+                interview_status VARCHAR(50) DEFAULT 'pending' COMMENT '面试状态',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='简历投递记录表'
+        ''')
+
+        # 3. 创建面试记录表
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS interview_record (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                token VARCHAR(200) UNIQUE NOT NULL COMMENT '面试Token',
+                email VARCHAR(200) COMMENT '面试者邮箱',
+                candidate_name VARCHAR(100) COMMENT '面试者姓名',
+                resume_name VARCHAR(200) COMMENT '简历文件名',
+                job_name VARCHAR(200) COMMENT '应聘岗位',
+                resume_id INT COMMENT '关联简历ID',
+                status VARCHAR(50) DEFAULT 'pending' COMMENT '面试状态',
+                questions_basic TEXT COMMENT '基础知识题目(JSON)',
+                questions_project TEXT COMMENT '项目经历题目(JSON)',
+                questions_intern TEXT COMMENT '实习经历题目(JSON)',
+                questions_practice TEXT COMMENT '技能实战题目(JSON)',
+                questions_advanced TEXT COMMENT '技能进阶题目(JSON)',
+                answers TEXT COMMENT '所有回答(JSON)',
+                final_score DECIMAL(5,2) COMMENT '最终得分',
+                scoring_details TEXT COMMENT '评分详情(JSON)',
+                result VARCHAR(50) COMMENT '面试结果',
+                interview_duration INT COMMENT '面试用时(秒)',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                expired_at DATETIME COMMENT '链接过期时间'
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI面试记录表'
+        ''')
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+        print("✅ MySQL数据库表初始化完成")
+
     def save_to_mysql(data):
         """
         保存简历记录到数据库
@@ -49,23 +148,24 @@ else:
             sql = """
             INSERT INTO resume_record 
             (deliver_time, job, major, education, city, target_city, score, email, mail_status, result) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             cursor.execute(sql, (
-                data["deliver_time"],
-                data["job"],
-                data["major"],
-                data["education"],
-                data["city"],
-                data["target_city"],
-                data["score"],
-                data["email"],
-                data["mail_status"],
-                data["result"]
+                data.get("deliver_time"),
+                data.get("job"),
+                data.get("major"),
+                data.get("education"),
+                data.get("city"),
+                data.get("target_city"),
+                data.get("score"),
+                data.get("email"),
+                data.get("mail_status"),
+                data.get("result")
             ))
 
             cursor.execute("SELECT LAST_INSERT_ID()")
             inserted_id = cursor.fetchone()[0]
+            conn.commit()
 
             print("✅ 数据已存入 MySQL，ID:", inserted_id)
         except Error as e:
@@ -77,6 +177,95 @@ else:
                 conn.close()
 
         return inserted_id
+
+    def save_interview_to_db(interview_data):
+        """
+        保存面试记录到数据库
+        :param interview_data: 面试数据字典
+        :return: 插入的ID
+        """
+        import json
+        conn = None
+        cursor = None
+        inserted_id = None
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+
+            sql = """
+            INSERT INTO interview_record 
+            (token, email, candidate_name, job_name, status, questions_basic, questions_project, 
+             questions_intern, questions_practice, questions_advanced, final_score, result, 
+             scoring_details, interview_duration)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            cursor.execute(sql, (
+                interview_data.get("token"),
+                interview_data.get("email"),
+                interview_data.get("candidate_name"),
+                interview_data.get("job_name"),
+                interview_data.get("status", "pending"),
+                json.dumps(interview_data.get("questions_basic", []), ensure_ascii=False),
+                json.dumps(interview_data.get("questions_project", []), ensure_ascii=False),
+                json.dumps(interview_data.get("questions_intern", []), ensure_ascii=False),
+                json.dumps(interview_data.get("questions_practice", []), ensure_ascii=False),
+                json.dumps(interview_data.get("questions_advanced", []), ensure_ascii=False),
+                interview_data.get("final_score"),
+                interview_data.get("result"),
+                json.dumps(interview_data.get("scoring_details", {}), ensure_ascii=False),
+                interview_data.get("interview_duration")
+            ))
+
+            cursor.execute("SELECT LAST_INSERT_ID()")
+            inserted_id = cursor.fetchone()[0]
+            conn.commit()
+
+            print("✅ 面试数据已存入 MySQL，ID:", inserted_id)
+        except Error as e:
+            print("❌ MySQL 错误：", e)
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+
+        return inserted_id
+
+    def update_interview_result(token, final_score, result, scoring_details):
+        """
+        更新面试结果
+        :param token: 面试Token
+        :param final_score: 最终得分
+        :param result: 面试结果
+        :param scoring_details: 评分详情
+        """
+        import json
+        conn = None
+        cursor = None
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+
+            sql = """
+            UPDATE interview_record 
+            SET final_score=%s, result=%s, scoring_details=%s, status='completed'
+            WHERE token=%s
+            """
+            cursor.execute(sql, (
+                final_score,
+                result,
+                json.dumps(scoring_details, ensure_ascii=False),
+                token
+            ))
+            conn.commit()
+            print(f"✅ 面试结果已更新：{token}")
+        except Error as e:
+            print("❌ 更新面试结果失败：", e)
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
 
     def handle_save_to_db(detail_data):
         """
@@ -165,3 +354,39 @@ else:
         finally:
             conn.close()
         return criteria
+
+    def get_all_resumes():
+        """
+        获取所有简历记录
+        :return: 简历记录列表
+        """
+        conn = get_db_connection()
+        resumes = []
+        try:
+            with conn.cursor(pymysql.cursors.DictCursor) as cur:
+                sql = "SELECT * FROM resume_record ORDER BY created_at DESC"
+                cur.execute(sql)
+                resumes = cur.fetchall()
+        except Exception as e:
+            print(f"❌ 查询简历记录失败: {e}")
+        finally:
+            conn.close()
+        return resumes
+
+    def get_all_interviews():
+        """
+        获取所有面试记录
+        :return: 面试记录列表
+        """
+        conn = get_db_connection()
+        interviews = []
+        try:
+            with conn.cursor(pymysql.cursors.DictCursor) as cur:
+                sql = "SELECT * FROM interview_record ORDER BY created_at DESC"
+                cur.execute(sql)
+                interviews = cur.fetchall()
+        except Exception as e:
+            print(f"❌ 查询面试记录失败: {e}")
+        finally:
+            conn.close()
+        return interviews
