@@ -9,7 +9,7 @@ import hashlib
 import secrets
 from datetime import datetime, timedelta
 from config import APP_BASE_URL, INTERVIEW_CONFIG
-from database import get_db_connection
+from database_sqlite import get_db_connection
 from ai_scorer import call_llm
 from email_service import send_interview_result_email, send_interview_invitation_email
 from excel_service import update_excel_interview_scores
@@ -153,7 +153,9 @@ def generate_questions_for_module(module_name, resume_text, jd_content):
     :param jd_content: JD内容
     :return: 题目列表
     """
-    questions_num = QUESTIONS_PER_MODULE
+    # 确定这个模块需要多少题
+    module_idx = MODULE_NAMES.index(module_name) if module_name in MODULE_NAMES else 0
+    questions_num = QUESTIONS_PER_MODULE[module_idx] if isinstance(QUESTIONS_PER_MODULE, list) else QUESTIONS_PER_MODULE
 
     # 根据不同模块，定制不同的提示词
     module_specific_instructions = {

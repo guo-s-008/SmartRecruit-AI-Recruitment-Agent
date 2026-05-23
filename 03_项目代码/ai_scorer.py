@@ -89,10 +89,10 @@ def ai_score_resume_with_jd(resume_text, jd_content, job_name="匹配到的岗�
     if num_list:
         score = int(num_list[0])
 
-    if score >= 85:
-        final_msg = "\n——————————————\n【录用结果通知】\n恭喜同学，你的简历综合得分：" + str(score) + "分，\n你的简历符合岗位录用标准，\n欢迎加入智聘未来团队，\n后续将通过邮件通知面试安排，请耐心等待。"
+    if score >= 70:
+        final_msg = "\n——————————————\n【初筛结果通知】\n恭喜同学，你的简历综合得分：" + str(score) + "分，\n你的简历通过了初筛！\n后续将通过邮件发送面试邀请，请留意邮箱。"
     else:
-        final_msg = "\n——————————————\n【录用结果通知】\n很遗憾，你的简历综合得分：" + str(score) + "分，\n暂时与岗位要求存在差距，\n建议结合改进建议优化简历，\n欢迎再次投递。"
+        final_msg = "\n——————————————\n【初筛结果通知】\n很遗憾，你的简历综合得分：" + str(score) + "分，\n暂未通过初筛，\n建议结合改进建议优化简历，\n欢迎再次投递。"
 
     return score, content + final_msg
 

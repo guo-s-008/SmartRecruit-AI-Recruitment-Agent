@@ -6,7 +6,16 @@
 from config import USE_SQLITE
 
 if USE_SQLITE:
-    from interview_service_sqlite import *
+    from interview_service_sqlite import (
+        create_interview_token,
+        create_interview_link,
+        verify_interview_token,
+        update_interview_status,
+        update_module_questions,
+        generate_questions_for_module,
+        generate_default_questions,
+        score_interview
+    )
 else:
     import re
     import json

@@ -18,7 +18,7 @@ def send_email(receive_email, score, job_title, apply_result, report="", advanta
     :param receive_email: 求职者邮箱
     :param score: 分数
     :param job_title: 岗位名称
-    :param apply_result: 录用结果（录用/不合适）
+    :param apply_result: 初筛结果（初筛通过/初筛未通过）
     :param report: 完整报告（求职者用）
     :param advantage: 优势（HR用）
     :param shortcoming: 不足（HR用）
@@ -27,19 +27,19 @@ def send_email(receive_email, score, job_title, apply_result, report="", advanta
     HR_EMAIL = EMAIL_CONFIG.get("hr_email")
     mail_status = "失败"
 
-    if apply_result == "录用":
-        hr_tip = f"请您联系求职者邮箱：{receive_email}，尽快安排后续面试。"
+    if apply_result == "初筛通过":
+        hr_tip = f"该候选人初筛通过，请关注后续面试流程。"
     else:
-        hr_tip = "该候选人已为您录入企业人才库，可后续持续关注。"
+        hr_tip = "该候选人初筛未通过，已录入企业人才库，可后续关注。"
 
     advantage_text = advantage if advantage else "无明显优势信息"
     shortcoming_text = shortcoming if shortcoming else "无明显短板信息"
 
     applicant_content = report if report else "AI评分报告生成失败"
 
-    hr_content = f"""【简历评分】
+    hr_content = f"""【简历初筛】
 综合得分：{score}分
-录用判定：{apply_result}
+初筛结果：{apply_result}
 
 【简历优势】
 {advantage_text}
@@ -233,6 +233,31 @@ def send_interview_invitation_email(email, candidate_name, interview_url):
 祝您面试顺利！
 
 智聘未来 招聘团队"""
+
+    print("\n" + "=" * 80)
+    print("📄 面试邀请邮件全文：")
+    print("=" * 80)
+    print(content)
+    print("=" * 80 + "\n")
+
+    log_dir = os.path.join(LOG_ROOT, "log_eminfo")
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, f"email_{time.strftime('%Y-%m-%d')}.log")
+    log_content = f"""
+[时间] {time.strftime('%Y-%m-%d %H:%M:%S')}
+[邮件类型] 面试邀请
+[收件人] {email}
+[候选人] {candidate_name}
+[面试链接] {interview_url}
+
+------ 邮件内容 ----
+{content}
+
+{'=' * 60}
+"""
+    with open(log_file, "a", encoding="utf-8") as f:
+        f.write(log_content)
+    print(f"📝 面试邀请邮件已保存至日志：{log_file}")
 
     try:
         msg = MIMEMultipart()

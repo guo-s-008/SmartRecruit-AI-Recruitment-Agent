@@ -17,7 +17,7 @@ from interview_service import (
     score_interview
 )
 from utils import read_resume_text
-from database import get_jd_from_db
+from database_sqlite import get_jd_from_db
 from ai_scorer import call_llm
 
 st.set_page_config(page_title="智聘未来 - AI面试", page_icon="🎤", layout="centered", initial_sidebar_state="collapsed")
@@ -40,11 +40,13 @@ if not is_valid:
     st.error(f"❌ {msg}")
     st.stop()
 
+from datetime import datetime
+
 st.markdown(f"""
 <div class="interview-header">
     <h2>🎤 智聘未来 AI 智能面试</h2>
     <p>应聘岗位：{record['job_name']}</p>
-    <p>面试链接有效期至：{record['expired_at'].strftime('%Y-%m-%d %H:%M')}</p>
+    <p>面试链接有效期至：{datetime.fromisoformat(record['expired_at']).strftime('%Y-%m-%d %H:%M') if record['expired_at'] else '未设置'}</p>
 </div>
 """, unsafe_allow_html=True)
 
