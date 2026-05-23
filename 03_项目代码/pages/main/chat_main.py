@@ -22,6 +22,9 @@ from database_sqlite import (
     get_db_connection,
     init_tables
 )
+from database import (
+    save_interview_url
+)
 from resume_parser import handle_upload_and_parse
 from ai_scorer import (
     handle_score,
@@ -284,22 +287,27 @@ def process_user_input(user_input, uploaded_file=None):
             )
 
             if apply_result == "初筛通过":
+                candidate_name = parsed.get("name", "")
+                if not candidate_name:
+                    candidate_name = email.split("@")[0] if email else "同学"
+                
                 interview_url = create_interview_link(
                     email,
                     os.path.basename(st.session_state.uploaded_file_path or ""),
                     job,
-                    inserted_id
+                    inserted_id,
+                    candidate_name
                 )
                 if interview_url:
-                    candidate_name = parsed.get("name", "")
-                    if not candidate_name:
-                        candidate_name = email.split("@")[0] if email else "同学"
+                    # 保存面试URL到interview_url表
+                    token = interview_url.split("token=")[-1]
+                    save_interview_url(inserted_id, interview_url, token)
+                    
                     send_interview_invitation_email(email, candidate_name, interview_url)
 
                     try:
                         conn = get_db_connection()
                         cursor = conn.cursor()
-                        token = interview_url.split("token=")[-1]
                         cursor.execute(
                             "UPDATE resume_record SET interview_token=?, interview_link=?, interview_status='已发送' WHERE email=? AND job=?",
                             (token, interview_url, email, job)

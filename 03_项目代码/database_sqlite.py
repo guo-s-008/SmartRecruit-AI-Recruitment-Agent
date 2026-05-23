@@ -10,14 +10,12 @@ from config import SQLITE_DB_PATH
 # 确保数据库目录存在
 os.makedirs(os.path.dirname(SQLITE_DB_PATH) if os.path.dirname(SQLITE_DB_PATH) else ".", exist_ok=True)
 
-
 def get_db_connection():
     """
     获取数据库连接
     :return: 数据库连接对象
     """
     return sqlite3.connect(SQLITE_DB_PATH)
-
 
 def init_tables():
     """
@@ -48,11 +46,14 @@ def init_tables():
         CREATE TABLE IF NOT EXISTS resume_record (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             deliver_time TEXT,
-            job TEXT,
-            major TEXT,
+            name TEXT,
+            gender TEXT,
+            age TEXT,
             education TEXT,
+            major TEXT,
             city TEXT,
             target_city TEXT,
+            job TEXT,
             score INTEGER,
             email TEXT,
             mail_status TEXT,
@@ -91,10 +92,151 @@ def init_tables():
         )
     ''')
 
+    # 创建面试URL表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS interview_url (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            resume_id INTEGER NOT NULL,
+            url TEXT NOT NULL,
+            token TEXT NOT NULL,
+            generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            used_at TIMESTAMP,
+            destroyed_at TIMESTAMP,
+            request_count INTEGER DEFAULT 0,
+            interrupted INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (resume_id) REFERENCES resume_record(id) ON DELETE CASCADE
+        )
+    ''')
+
     conn.commit()
     conn.close()
     print("✅ 数据库表初始化完成")
 
+def save_interview_url(resume_id, url, token):
+    """
+    保存面试URL记录
+    :param resume_id: 简历记录ID
+    :param url: 面试URL
+    :param token: 面试Token
+    :return: 插入的ID
+    """
+    conn = None
+    cursor = None
+    inserted_id = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        sql = """
+        INSERT INTO interview_url (resume_id, url, token) VALUES (?, ?, ?)
+        """
+        cursor.execute(sql, (resume_id, url, token))
+        inserted_id = cursor.lastrowid
+        conn.commit()
+        print(f"✅ 面试URL已保存，ID: {inserted_id}")
+    except Exception as e:
+        print(f"❌ 保存面试URL失败: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+    return inserted_id
+
+def update_interview_url_request(token):
+    """
+    更新面试URL请求次数
+    :param token: 面试Token
+    :return: (是否中断, request_count)
+    """
+    conn = None
+    cursor = None
+    is_interrupted = False
+    request_count = 0
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # 查询当前请求次数
+        cursor.execute("SELECT request_count FROM interview_url WHERE token = ?", (token,))
+        row = cursor.fetchone()
+
+        if row:
+            request_count = row[0] + 1
+            cursor.execute("UPDATE interview_url SET request_count = ? WHERE token = ?", (request_count, token))
+
+            # 如果是第一次使用，更新使用时间
+            if request_count == 1:
+                from datetime import datetime
+                cursor.execute("UPDATE interview_url SET used_at = ? WHERE token = ?", (datetime.now().isoformat(), token))
+
+            # 如果超过2次，标记为中断
+            if request_count >= 3:
+                is_interrupted = True
+                from datetime import datetime
+                cursor.execute("UPDATE interview_url SET interrupted = 1, destroyed_at = ? WHERE token = ?", (datetime.now().isoformat(), token))
+
+            conn.commit()
+
+    except Exception as e:
+        print(f"❌ 更新面试URL失败: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+    return is_interrupted, request_count
+
+def get_interview_url_by_token(token):
+    """
+    通过Token获取面试URL记录
+    :param token: 面试Token
+    :return: 记录字典
+    """
+    conn = None
+    cursor = None
+    record = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM interview_url WHERE token = ?", (token,))
+        row = cursor.fetchone()
+
+        if row:
+            cursor.execute("PRAGMA table_info(interview_url)")
+            columns = [col[1] for col in cursor.fetchall()]
+            record = dict(zip(columns, row))
+    except Exception as e:
+        print(f"❌ 查询面试URL失败: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+    return record
+
+def mark_interview_url_destroyed(token):
+    """
+    标记面试URL为已销毁
+    :param token: 面试Token
+    """
+    conn = None
+    cursor = None
+    try:
+        from datetime import datetime
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE interview_url SET destroyed_at = ?, interrupted = 1 WHERE token = ?", (datetime.now().isoformat(), token))
+        conn.commit()
+        print(f"✅ 面试URL已销毁: {token}")
+    except Exception as e:
+        print(f"❌ 销毁面试URL失败: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 def save_to_mysql(data):
     """
@@ -140,7 +282,6 @@ def save_to_mysql(data):
 
     return inserted_id
 
-
 def handle_save_to_db(detail_data):
     """
     封装的保存到数据库接口（供外部调用）
@@ -160,7 +301,6 @@ def handle_save_to_db(detail_data):
         "result": detail_data.get("测评结果")
     }
     return save_to_mysql(data)
-
 
 def query_jobs_from_db(keyword=None):
     """
@@ -184,7 +324,6 @@ def query_jobs_from_db(keyword=None):
     finally:
         conn.close()
     return jobs
-
 
 def get_jd_from_db(job_name):
     """
@@ -210,7 +349,6 @@ def get_jd_from_db(job_name):
         jd_text = f"{job_name}：熟悉相关技术栈，有项目经验。"
     return jd_text
 
-
 def get_scoring_criteria_from_db(job_name):
     """
     从数据库获取评分标准
@@ -232,6 +370,6 @@ def get_scoring_criteria_from_db(job_name):
         conn.close()
     return criteria
 
-
 # 初始化数据库
 init_tables()
+

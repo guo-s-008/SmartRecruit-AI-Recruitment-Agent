@@ -1,4 +1,5 @@
 
+
 """
 面试服务模块
 负责面试相关的所有功能 - 自动切换SQLite和MySQL
@@ -47,13 +48,14 @@ else:
         token = hashlib.md5(raw.encode()).hexdigest() + secrets.token_hex(8)
         return token
 
-    def create_interview_link(email, resume_name, job_name, resume_id=None):
+    def create_interview_link(email, resume_name, job_name, resume_id=None, candidate_name=''):
         """
         创建面试链接
         :param email: 候选人邮箱
         :param resume_name: 简历名称
         :param job_name: 岗位名称
         :param resume_id: 简历ID（可选）
+        :param candidate_name: 候选人姓名（可选）
         :return: 面试链接
         """
         token = create_interview_token(email, resume_name, job_name)
@@ -64,9 +66,9 @@ else:
             with conn.cursor() as cur:
                 cur.execute('''
                     INSERT INTO interview_record 
-                    (token, email, resume_name, job_name, resume_id, status, created_at, expired_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                ''', (token, email, resume_name, job_name, str(resume_id) if resume_id else None, 
+                    (token, email, candidate_name, resume_name, job_name, resume_id, status, created_at, expired_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ''', (token, email, candidate_name, resume_name, job_name, str(resume_id) if resume_id else None, 
                       'pending', datetime.now(), expired_at))
             conn.commit()
             conn.close()
@@ -279,3 +281,4 @@ else:
 
         except Exception as e:
             print(f"面试评分失败: {e}")
+

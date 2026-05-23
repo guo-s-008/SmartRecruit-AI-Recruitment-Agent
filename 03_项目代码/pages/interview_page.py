@@ -1,3 +1,4 @@
+
 import streamlit as st
 import sys
 import os
@@ -16,6 +17,12 @@ from interview_service import (
     update_module_questions,
     score_interview
 )
+from database import (
+    update_interview_url_request,
+    get_interview_url_by_token,
+    mark_interview_url_destroyed
+)
+from email_service import send_interview_interrupted_email
 from utils import read_resume_text
 from database_sqlite import get_jd_from_db
 from ai_scorer import call_llm
@@ -27,6 +34,7 @@ st.markdown("""
     .stApp { background-color: #fcfaf2; font-family: "Microsoft YaHei", sans-serif; }
     .interview-header { text-align: center; padding: 20px; }
     .question-card { background: #ffffff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin: 10px 0; }
+    .warning-box { background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 15px; margin: 10px 0; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -34,6 +42,34 @@ token = st.query_params.get("token", None)
 if not token:
     st.error("❌ 缺少面试链接参数，请从邮件中的链接进入。")
     st.stop()
+
+# 首先验证URL访问次数
+is_interrupted, request_count = update_interview_url_request(token)
+
+if is_interrupted:
+    # 获取面试记录信息用于发送邮件
+    is_valid, record, msg = verify_interview_token(token)
+    if is_valid:
+        send_interview_interrupted_email(
+            record.get('candidate_name', ''),
+            record.get('email', ''),
+            record.get('job_name', '')
+        )
+    st.error("""
+    ❌ 面试链接已失效！
+
+    原因：该链接已被访问超过3次，为防止作弊，面试链接已被销毁。
+
+    请联系HR重新发起面试邀请。
+    """)
+    st.stop()
+
+# 显示访问次数提醒
+if request_count > 0:
+    st.warning(f"""
+    ⚠️ 注意：该面试链接已被访问 {request_count} 次，
+    为了保证面试公平性，每个链接最多只能访问3次，超过3次后链接将失效，请确保网络稳定！
+    """)
 
 is_valid, record, msg = verify_interview_token(token)
 if not is_valid:
@@ -49,6 +85,16 @@ st.markdown(f"""
     <p>面试链接有效期至：{datetime.fromisoformat(record['expired_at']).strftime('%Y-%m-%d %H:%M') if record['expired_at'] else '未设置'}</p>
 </div>
 """, unsafe_allow_html=True)
+
+# 在面试须知中添加提示
+st.info("""
+💡 **面试须知**：
+1. 本面试共包含**5个模块**：基础知识、项目经历、实习经历、技能实战、技能进阶实战
+2. 每个模块2-3题，总计约12题
+3. 请认真作答，提交后不可回退
+4. 面试结果将在48小时内通过邮件通知
+5. **重要提醒**：该面试链接最多只能访问3次，超过3次后将失效，请确保网络稳定！
+""")
 
 if "interview_started" not in st.session_state:
     st.session_state.interview_started = False
@@ -67,13 +113,6 @@ if not st.session_state.jd_content and record.get('job_name'):
     st.session_state.jd_content = get_jd_from_db(record['job_name'])
 
 if not st.session_state.interview_started:
-    st.markdown("""
-    ### 📋 面试须知
-    1. 本面试共包含**5个模块**：基础知识、项目经历、实习经历、技能实战、技能进阶实战
-    2. 每个模块2-3题，总计约12题
-    3. 请认真作答，提交后不可回退
-    4. 面试结果将在48小时内通过邮件通知
-    """)
     if st.button("✅ 开始面试", type="primary", use_container_width=True):
         st.session_state.interview_started = True
         update_interview_status(token, '进行中')
@@ -141,3 +180,4 @@ else:
             st.rerun()
     else:
         st.success("您的面试答案已成功提交！")
+

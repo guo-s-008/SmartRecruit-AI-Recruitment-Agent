@@ -1,4 +1,5 @@
 
+
 """
 面试服务模块 - SQLite版本
 负责面试相关的所有功能
@@ -35,13 +36,14 @@ def create_interview_token(email, resume_name, job_name):
     return token
 
 
-def create_interview_link(email, resume_name, job_name, resume_id=None):
+def create_interview_link(email, resume_name, job_name, resume_id=None, candidate_name=''):
     """
     创建面试链接
     :param email: 候选人邮箱
     :param resume_name: 简历名称
     :param job_name: 岗位名称
     :param resume_id: 简历ID（可选）
+    :param candidate_name: 候选人姓名（可选）
     :return: 面试链接
     """
     token = create_interview_token(email, resume_name, job_name)
@@ -52,9 +54,9 @@ def create_interview_link(email, resume_name, job_name, resume_id=None):
         cursor = conn.cursor()
         cursor.execute('''
             INSERT INTO interview_record 
-            (token, email, resume_name, job_name, resume_id, status, created_at, expired_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (token, email, resume_name, job_name, str(resume_id) if resume_id else None, 
+            (token, email, candidate_name, resume_name, job_name, resume_id, status, created_at, expired_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (token, email, candidate_name, resume_name, job_name, str(resume_id) if resume_id else None, 
               'pending', datetime.now().isoformat(), expired_at.isoformat()))
         conn.commit()
         conn.close()
@@ -184,7 +186,7 @@ def generate_questions_for_module(module_name, resume_text, jd_content):
 
 请按照以下JSON格式输出：
 [
-  {{\"question\": \"问题内容\", \"reference_answer\": \"参考答案要点\", \"scoring_points\": [\"评分点1\", \"评分点2\"]}},
+  {{"question": "问题内容", "reference_answer": "参考答案要点", "scoring_points": ["评分点1", "评分点2"]}},
   ...
 ]"""
 
@@ -281,3 +283,4 @@ def score_interview(token, answers, record):
 
     except Exception as e:
         print(f"面试评分失败: {e}")
+

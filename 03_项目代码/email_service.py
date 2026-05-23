@@ -218,6 +218,7 @@ def send_interview_invitation_email(email, candidate_name, interview_url):
 点击下方链接开始面试：
 {interview_url}
 
+⚠️ 重要提醒：该面试链接最多只能访问3次，超过3次后链接将失效，请确保网络稳定！
 ⏰ 时间限时为48小时，过期不候。
 ✅ 完成面试后，我们后续会与您继续联系。
 
@@ -258,6 +259,63 @@ def send_interview_invitation_email(email, candidate_name, interview_url):
         return True
     except Exception as e:
         print(f"❌ 面试邀请邮件发送失败: {e}")
+        return False
+
+
+def send_interview_interrupted_email(candidate_name, email, job_name):
+    """
+    发送面试中断提醒邮件（只发给候选人，不发给HR）
+    :param candidate_name: 候选人姓名
+    :param email: 求职者邮箱
+    :param job_name: 岗位名称
+    """
+    if not candidate_name or candidate_name == "未知":
+        candidate_name = email.split("@")[0] if email else "同学"
+
+    content = f"""您好{candidate_name}，
+
+很抱歉通知您，您的面试链接已失效。
+
+应聘岗位：{job_name}
+失效原因：面试链接已被访问超过3次，为防止作弊，链接已被销毁。
+
+如有疑问，请联系HR重新发起面试邀请。
+
+智聘未来 招聘团队"""
+
+    print("\n" + "=" * 80)
+    print("📄 面试中断提醒邮件全文：")
+    print("=" * 80)
+    print(content)
+    print("=" * 80 + "\n")
+
+    # 记录到日志
+    from log_system import write_email_log
+    write_email_log(
+        candidate_name=candidate_name,
+        email=email,
+        job_name=job_name,
+        score=0,
+        result="面试中断",
+        applicant_email_content=content,
+        hr_email_content=f"[面试中断] 候选人 {candidate_name} ({email}) 的面试链接已失效"
+    )
+
+    try:
+        msg = MIMEMultipart()
+        msg["From"] = EMAIL_CONFIG["sender"]
+        msg["To"] = email
+        msg["Subject"] = f"【智聘未来】面试链接失效提醒｜{job_name}"
+        msg.attach(MIMEText(content, "plain", "utf-8"))
+
+        smtp = smtplib.SMTP_SSL(EMAIL_CONFIG["server"], EMAIL_CONFIG["port"])
+        smtp.login(EMAIL_CONFIG["sender"], EMAIL_CONFIG["password"])
+        smtp.sendmail(EMAIL_CONFIG["sender"], email, msg.as_string())
+        smtp.quit()
+        print("✅ 面试中断提醒邮件发送成功")
+        return True
+    except Exception as e:
+        print(f"❌ 面试中断提醒邮件发送失败: {e}")
         return False
 
 
