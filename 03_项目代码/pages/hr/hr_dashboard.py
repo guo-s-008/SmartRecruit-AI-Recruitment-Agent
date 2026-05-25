@@ -8,11 +8,16 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
 sys.path.insert(0, project_root)
 
-from database_sqlite import (
+from database import (
     query_jobs_from_db,
     get_all_talents,
     recommend_talents_for_job,
-    add_talent_to_pool
+    add_talent_to_pool,
+    get_all_jobs,
+    update_job_status,
+    delete_job,
+    update_talent_status,
+    search_talents
 )
 from log_system import write_hr_log
 

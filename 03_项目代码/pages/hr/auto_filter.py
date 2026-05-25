@@ -10,7 +10,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
 sys.path.insert(0, project_root)
 
-from database_sqlite import (
+from database import (
     search_talents, 
     query_jobs_from_db, 
     get_all_talents,

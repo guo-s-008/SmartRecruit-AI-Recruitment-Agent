@@ -10,7 +10,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
 sys.path.insert(0, project_root)
 
-from database_sqlite import get_all_talents, search_talents
+from database import get_all_talents, search_talents
 from log_system import write_hr_log
 
 # 页面配置

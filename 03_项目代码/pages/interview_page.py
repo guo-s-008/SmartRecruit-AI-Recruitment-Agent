@@ -20,11 +20,11 @@ from interview_service import (
 from database import (
     update_interview_url_request,
     get_interview_url_by_token,
-    mark_interview_url_destroyed
+    mark_interview_url_destroyed,
+    get_jd_from_db
 )
 from email_service import send_interview_interrupted_email
 from utils import read_resume_text
-from database_sqlite import get_jd_from_db
 from ai_scorer import call_llm
 
 st.set_page_config(page_title="智聘未来 - AI面试", page_icon="🎤", layout="centered", initial_sidebar_state="collapsed")

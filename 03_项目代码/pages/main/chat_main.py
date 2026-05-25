@@ -14,16 +14,15 @@ sys.path.insert(0, project_root)
 from log_system import write_dialog_log
 from email_service import send_interview_invitation_email
 from excel_service import handle_save_to_excel
-from database_sqlite import (
+from database import (
     query_jobs_from_db,
     get_jd_from_db,
     get_scoring_criteria_from_db,
     save_to_mysql,
     get_db_connection,
-    init_tables
-)
-from database import (
-    save_interview_url
+    init_tables,
+    save_interview_url,
+    handle_save_to_db
 )
 from resume_parser import handle_upload_and_parse
 from ai_scorer import (
@@ -309,7 +308,7 @@ def process_user_input(user_input, uploaded_file=None):
                         conn = get_db_connection()
                         cursor = conn.cursor()
                         cursor.execute(
-                            "UPDATE resume_record SET interview_token=?, interview_link=?, interview_status='已发送' WHERE email=? AND job=?",
+                            "UPDATE resume_record SET interview_token=%s, interview_link=%s, interview_status='已发送' WHERE email=%s AND job=%s",
                             (token, interview_url, email, job)
                         )
                         conn.commit()

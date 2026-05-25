@@ -17,7 +17,12 @@ if USE_SQLITE:
         save_interview_url,
         update_interview_url_request,
         get_interview_url_by_token,
-        mark_interview_url_destroyed
+        mark_interview_url_destroyed,
+        add_talent_to_pool,
+        get_all_talents,
+        search_talents,
+        recommend_talents_for_job,
+        update_talent_status
     )
 else:
     import pymysql
@@ -149,6 +154,32 @@ else:
                 INDEX idx_token (token),
                 INDEX idx_resume_id (resume_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='面试URL表'
+        ''')
+
+        # 5. 创建人才库表
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS talent_pool (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100) COMMENT '姓名',
+                gender VARCHAR(20) COMMENT '性别',
+                age VARCHAR(20) COMMENT '年龄',
+                education VARCHAR(100) COMMENT '学历',
+                major VARCHAR(200) COMMENT '专业',
+                city VARCHAR(100) COMMENT '所在城市',
+                email VARCHAR(200) UNIQUE COMMENT '邮箱',
+                phone VARCHAR(20) COMMENT '电话',
+                skills TEXT COMMENT '技能',
+                experience TEXT COMMENT '经验',
+                resume_text TEXT COMMENT '简历内容',
+                tags TEXT COMMENT '标签',
+                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '最后更新时间',
+                status VARCHAR(50) DEFAULT 'active' COMMENT '状态',
+                source VARCHAR(100) COMMENT '来源',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                INDEX idx_status (status),
+                INDEX idx_email (email)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='人才库表'
         ''')
 
         conn.commit()
@@ -534,4 +565,296 @@ else:
         finally:
             conn.close()
         return interviews
+
+    # ==================== 人才库操作函数 ====================
+
+    def add_talent_to_pool(talent_data):
+        """
+        添加人才到人才库
+        :param talent_data: 人才数据字典
+        :return: 插入的ID
+        """
+        conn = None
+        cursor = None
+        inserted_id = None
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            sql = """
+            INSERT INTO talent_pool 
+            (name, gender, age, education, major, city, email, phone, skills, experience, resume_text, tags, source)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+            name=VALUES(name), gender=VALUES(gender), age=VALUES(age), education=VALUES(education),
+            major=VALUES(major), city=VALUES(city), phone=VALUES(phone), skills=VALUES(skills),
+            experience=VALUES(experience), resume_text=VALUES(resume_text), tags=VALUES(tags),
+            source=VALUES(source), last_updated=CURRENT_TIMESTAMP
+            """
+            cursor.execute(sql, (
+                talent_data.get("name"),
+                talent_data.get("gender"),
+                talent_data.get("age"),
+                talent_data.get("education"),
+                talent_data.get("major"),
+                talent_data.get("city"),
+                talent_data.get("email"),
+                talent_data.get("phone"),
+                talent_data.get("skills"),
+                talent_data.get("experience"),
+                talent_data.get("resume_text"),
+                talent_data.get("tags"),
+                talent_data.get("source", "简历投递")
+            ))
+            if cursor.lastrowid == 0:
+                # 这是更新操作，查询对应的ID
+                cursor.execute("SELECT id FROM talent_pool WHERE email = %s", (talent_data.get("email"),))
+                inserted_id = cursor.fetchone()[0]
+            else:
+                inserted_id = cursor.lastrowid
+            conn.commit()
+            print(f"✅ 人才已添加到人才库，ID: {inserted_id}")
+        except Error as e:
+            print(f"❌ 添加人才失败: {e}")
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+        return inserted_id
+
+    def get_all_talents(status=None):
+        """
+        获取所有人才
+        :param status: 状态筛选（可选）
+        :return: 人才列表
+        """
+        conn = get_db_connection()
+        talents = []
+        try:
+            with conn.cursor(pymysql.cursors.DictCursor) as cur:
+                if status:
+                    sql = "SELECT * FROM talent_pool WHERE status=%s ORDER BY last_updated DESC"
+                    cur.execute(sql, (status,))
+                else:
+                    sql = "SELECT * FROM talent_pool ORDER BY last_updated DESC"
+                    cur.execute(sql)
+                talents = cur.fetchall()
+        except Exception as e:
+            print(f"❌ 查询人才库失败: {e}")
+        finally:
+            conn.close()
+        return talents
+
+    def search_talents(keyword=None, education=None, city=None, skills=None):
+        """
+        搜索人才
+        :param keyword: 关键词
+        :param education: 学历
+        :param city: 城市
+        :param skills: 技能
+        :return: 人才列表
+        """
+        conn = get_db_connection()
+        talents = []
+        try:
+            with conn.cursor(pymysql.cursors.DictCursor) as cur:
+                sql = "SELECT * FROM talent_pool WHERE status='active' "
+                params = []
+
+                if keyword:
+                    sql += "AND (name LIKE %s OR skills LIKE %s OR experience LIKE %s) "
+                    params.extend([f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"])
+
+                if education:
+                    sql += "AND education=%s "
+                    params.append(education)
+
+                if city:
+                    sql += "AND city=%s "
+                    params.append(city)
+
+                if skills:
+                    sql += "AND skills LIKE %s "
+                    params.append(f"%{skills}%")
+
+                sql += "ORDER BY last_updated DESC"
+                cur.execute(sql, params)
+                talents = cur.fetchall()
+        except Exception as e:
+            print(f"❌ 搜索人才失败: {e}")
+        finally:
+            conn.close()
+        return talents
+
+    def recommend_talents_for_job(job_name, limit=5):
+        """
+        为岗位推荐人才（基于技能匹配）
+        :param job_name: 岗位名称
+        :param limit: 返回数量
+        :return: 推荐人才列表
+        """
+        conn = get_db_connection()
+        talents = []
+        try:
+            with conn.cursor(pymysql.cursors.DictCursor) as cur:
+                # 获取岗位JD中的技能关键词
+                cur.execute("SELECT jd_content FROM job_positions WHERE job_name=%s", (job_name,))
+                row = cur.fetchone()
+                jd_content = row['jd_content'] if row else ""
+
+                # 提取技能关键词（简单匹配）
+                skill_keywords = ["python", "java", "go", "sql", "大数据", "机器学习", "数据分析", "算法"]
+
+                # 搜索匹配的人才
+                sql = "SELECT * FROM talent_pool WHERE status='active' AND ("
+                conditions = []
+                params = []
+                for keyword in skill_keywords:
+                    conditions.append("skills LIKE %s")
+                    params.append(f"%{keyword}%")
+                sql += " OR ".join(conditions)
+                sql += ") ORDER BY last_updated DESC LIMIT %s"
+                params.append(limit)
+
+                cur.execute(sql, params)
+                talents = cur.fetchall()
+        except Exception as e:
+            print(f"❌ 推荐人才失败: {e}")
+        finally:
+            conn.close()
+        return talents
+
+    def update_talent_status(talent_id, status):
+        """
+        更新人才状态
+        :param talent_id: 人才ID
+        :param status: 新状态
+        """
+        conn = None
+        cursor = None
+        try:
+            from datetime import datetime
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("UPDATE talent_pool SET status=%s, last_updated=CURRENT_TIMESTAMP WHERE id=%s",
+                          (status, talent_id))
+            conn.commit()
+            print(f"✅ 人才状态已更新，ID: {talent_id}")
+        except Error as e:
+            print(f"❌ 更新人才状态失败: {e}")
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+
+    def add_job_to_db(job_data):
+        """
+        添加岗位到数据库
+        :param job_data: 岗位数据字典
+        :return: 插入的ID
+        """
+        conn = None
+        cursor = None
+        inserted_id = None
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            sql = """
+            INSERT INTO job_positions 
+            (job_name, jd_content, scoring_criteria, education, city, is_intern, hiring_count, is_open)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+            jd_content=VALUES(jd_content), scoring_criteria=VALUES(scoring_criteria),
+            education=VALUES(education), city=VALUES(city), is_intern=VALUES(is_intern),
+            hiring_count=VALUES(hiring_count), is_open=VALUES(is_open), updated_at=CURRENT_TIMESTAMP
+            """
+            cursor.execute(sql, (
+                job_data.get("job_name"),
+                job_data.get("jd_content"),
+                job_data.get("scoring_criteria"),
+                job_data.get("education"),
+                job_data.get("city"),
+                job_data.get("is_intern", 0),
+                job_data.get("hiring_count", 1),
+                job_data.get("is_open", 1)
+            ))
+            if cursor.lastrowid == 0:
+                # 这是更新操作，查询对应的ID
+                cursor.execute("SELECT id FROM job_positions WHERE job_name = %s", (job_data.get("job_name"),))
+                inserted_id = cursor.fetchone()[0]
+            else:
+                inserted_id = cursor.lastrowid
+            conn.commit()
+            print(f"✅ 岗位已添加到数据库，ID: {inserted_id}")
+        except Error as e:
+            print(f"❌ 添加岗位失败: {e}")
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+        return inserted_id
+
+    def get_all_jobs():
+        """
+        获取所有岗位
+        :return: 岗位列表
+        """
+        conn = get_db_connection()
+        jobs = []
+        try:
+            with conn.cursor(pymysql.cursors.DictCursor) as cur:
+                sql = "SELECT * FROM job_positions ORDER BY created_at DESC"
+                cur.execute(sql)
+                jobs = cur.fetchall()
+        except Exception as e:
+            print(f"❌ 查询岗位失败: {e}")
+        finally:
+            conn.close()
+        return jobs
+
+    def update_job_status(job_id, is_open):
+        """
+        更新岗位状态
+        :param job_id: 岗位ID
+        :param is_open: 是否开放
+        """
+        conn = None
+        cursor = None
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("UPDATE job_positions SET is_open=%s, updated_at=CURRENT_TIMESTAMP WHERE id=%s",
+                          (is_open, job_id))
+            conn.commit()
+            print(f"✅ 岗位状态已更新，ID: {job_id}")
+        except Error as e:
+            print(f"❌ 更新岗位状态失败: {e}")
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+
+    def delete_job(job_id):
+        """
+        删除岗位
+        :param job_id: 岗位ID
+        """
+        conn = None
+        cursor = None
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM job_positions WHERE id=%s", (job_id,))
+            conn.commit()
+            print(f"✅ 岗位已删除，ID: {job_id}")
+        except Error as e:
+            print(f"❌ 删除岗位失败: {e}")
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
 
