@@ -110,6 +110,29 @@ def init_tables():
         )
     ''')
 
+    # 创建人才库表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS talent_pool (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            gender TEXT,
+            age TEXT,
+            education TEXT,
+            major TEXT,
+            city TEXT,
+            email TEXT UNIQUE,
+            phone TEXT,
+            skills TEXT,
+            experience TEXT,
+            resume_text TEXT,
+            tags TEXT,
+            last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            status TEXT DEFAULT 'active',
+            source TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
     conn.commit()
     conn.close()
     print("✅ 数据库表初始化完成")
@@ -369,6 +392,189 @@ def get_scoring_criteria_from_db(job_name):
     finally:
         conn.close()
     return criteria
+
+# ==================== 人才库操作函数 ====================
+
+def add_talent_to_pool(talent_data):
+    """
+    添加人才到人才库
+    :param talent_data: 人才数据字典
+    :return: 插入的ID
+    """
+    conn = None
+    cursor = None
+    inserted_id = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        sql = """
+        INSERT OR REPLACE INTO talent_pool 
+        (name, gender, age, education, major, city, email, phone, skills, experience, resume_text, tags, source)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        cursor.execute(sql, (
+            talent_data.get("name"),
+            talent_data.get("gender"),
+            talent_data.get("age"),
+            talent_data.get("education"),
+            talent_data.get("major"),
+            talent_data.get("city"),
+            talent_data.get("email"),
+            talent_data.get("phone"),
+            talent_data.get("skills"),
+            talent_data.get("experience"),
+            talent_data.get("resume_text"),
+            talent_data.get("tags"),
+            talent_data.get("source", "简历投递")
+        ))
+        inserted_id = cursor.lastrowid
+        conn.commit()
+        print(f"✅ 人才已添加到人才库，ID: {inserted_id}")
+    except Exception as e:
+        print(f"❌ 添加人才失败: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+    return inserted_id
+
+def get_all_talents(status=None):
+    """
+    获取所有人才
+    :param status: 状态筛选（可选）
+    :return: 人才列表
+    """
+    conn = get_db_connection()
+    talents = []
+    try:
+        cursor = conn.cursor()
+        if status:
+            sql = "SELECT * FROM talent_pool WHERE status=? ORDER BY last_updated DESC"
+            cursor.execute(sql, (status,))
+        else:
+            sql = "SELECT * FROM talent_pool ORDER BY last_updated DESC"
+            cursor.execute(sql)
+        rows = cursor.fetchall()
+        cursor.execute("PRAGMA table_info(talent_pool)")
+        columns = [col[1] for col in cursor.fetchall()]
+        talents = [dict(zip(columns, row)) for row in rows]
+    except Exception as e:
+        print(f"❌ 查询人才库失败: {e}")
+    finally:
+        conn.close()
+    return talents
+
+def search_talents(keyword=None, education=None, city=None, skills=None):
+    """
+    搜索人才
+    :param keyword: 关键词
+    :param education: 学历
+    :param city: 城市
+    :param skills: 技能
+    :return: 人才列表
+    """
+    conn = get_db_connection()
+    talents = []
+    try:
+        cursor = conn.cursor()
+        sql = "SELECT * FROM talent_pool WHERE status='active' "
+        params = []
+        
+        if keyword:
+            sql += "AND (name LIKE ? OR skills LIKE ? OR experience LIKE ?) "
+            params.extend([f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"])
+        
+        if education:
+            sql += "AND education=? "
+            params.append(education)
+        
+        if city:
+            sql += "AND city=? "
+            params.append(city)
+        
+        if skills:
+            sql += "AND skills LIKE ? "
+            params.append(f"%{skills}%")
+        
+        sql += "ORDER BY last_updated DESC"
+        cursor.execute(sql, params)
+        
+        rows = cursor.fetchall()
+        cursor.execute("PRAGMA table_info(talent_pool)")
+        columns = [col[1] for col in cursor.fetchall()]
+        talents = [dict(zip(columns, row)) for row in rows]
+    except Exception as e:
+        print(f"❌ 搜索人才失败: {e}")
+    finally:
+        conn.close()
+    return talents
+
+def recommend_talents_for_job(job_name, limit=5):
+    """
+    为岗位推荐人才（基于技能匹配）
+    :param job_name: 岗位名称
+    :param limit: 返回数量
+    :return: 推荐人才列表
+    """
+    conn = get_db_connection()
+    talents = []
+    try:
+        cursor = conn.cursor()
+        
+        # 获取岗位JD中的技能关键词
+        cursor.execute("SELECT jd_content FROM job_positions WHERE job_name=?", (job_name,))
+        row = cursor.fetchone()
+        jd_content = row[0] if row else ""
+        
+        # 提取技能关键词（简单匹配）
+        skill_keywords = ["python", "java", "go", "sql", "大数据", "机器学习", "数据分析", "算法"]
+        
+        # 搜索匹配的人才
+        sql = "SELECT * FROM talent_pool WHERE status='active' AND ("
+        conditions = []
+        params = []
+        for keyword in skill_keywords:
+            conditions.append("skills LIKE ?")
+            params.append(f"%{keyword}%")
+        sql += " OR ".join(conditions)
+        sql += ") ORDER BY last_updated DESC LIMIT ?"
+        params.append(limit)
+        
+        cursor.execute(sql, params)
+        rows = cursor.fetchall()
+        
+        cursor.execute("PRAGMA table_info(talent_pool)")
+        columns = [col[1] for col in cursor.fetchall()]
+        talents = [dict(zip(columns, row)) for row in rows]
+    except Exception as e:
+        print(f"❌ 推荐人才失败: {e}")
+    finally:
+        conn.close()
+    return talents
+
+def update_talent_status(talent_id, status):
+    """
+    更新人才状态
+    :param talent_id: 人才ID
+    :param status: 新状态
+    """
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE talent_pool SET status=?, last_updated=? WHERE id=?",
+                      (status, datetime.now().isoformat(), talent_id))
+        conn.commit()
+        print(f"✅ 人才状态已更新，ID: {talent_id}")
+    except Exception as e:
+        print(f"❌ 更新人才状态失败: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 # 初始化数据库
 init_tables()
