@@ -27,7 +27,7 @@ EXCEL_DATA_PATH = os.getenv("EXCEL_DATA_PATH", os.path.join(BASE_DIR, "04_数据
 # ===================== 数据库配置 =====================
 # 使用SQLite数据库（无需服务器，开箱即用）
 # 如需使用MySQL，请将USE_SQLITE改为False，并配置.env文件中的MySQL连接信息
-USE_SQLITE = False
+USE_SQLITE = True
 
 # SQLite 数据库路径
 SQLITE_DB_PATH = os.path.join(BASE_DIR, "04_数据文件", "recruitment.db")
