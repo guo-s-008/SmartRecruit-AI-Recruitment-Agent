@@ -167,3 +167,63 @@ def generate_free_reply(history_list, user_input):
     prompt = "你是一个专业的智聘未来招聘助手。根据对话历史，用自然、友好的语气回应用户，并尝试引导用户使用以下功能：\n- 查看在招岗位\n- 了解岗位具体要求\n- 上传简历\n- 评估简历与岗位的匹配度\n- 获取简历优化建议\n\n不要编造虚构信息。如果用户想了解岗位，提醒他们可以直接说出岗位名称。\n当前对话历史：\n" + history_text + "\n用户最新输入：" + user_input + "\n\n请直接给出助手回复："
 
     return call_llm([{"role": "user", "content": prompt}], temperature=0.7)
+
+
+def analyze_candidates_comparison(candidates_list):
+    """
+    对多个候选人进行AI智能对比分析
+    :param candidates_list: 候选人信息列表
+    :return: AI分析结果
+    """
+    candidates_text = ""
+    for i, candidate in enumerate(candidates_list, 1):
+        candidates_text += f"""
+【候选人{i} - {candidate.get('name', '未知')}】
+- 姓名：{candidate.get('name', '未知')}
+- 性别：{candidate.get('gender', '未知')}
+- 年龄：{candidate.get('age', '未知')}
+- 学历：{candidate.get('education', '未知')}
+- 专业：{candidate.get('major', '未知')}
+- 城市：{candidate.get('city', '未知')}
+- 技能：{candidate.get('skills', '未知')}
+- 经验：{candidate.get('experience', '未知')}
+- 标签：{candidate.get('tags', '未知')}
+"""
+    
+    prompt = f"""你是一名资深人力资源专家，请对以下候选人进行全面、专业的对比分析。
+
+【候选人信息】
+{candidates_text}
+
+请严格按照以下格式输出分析结果：
+
+【📊 整体分析总结】
+简要总结这批候选人的整体特点和水平
+
+【📚 学历背景分析】
+1. 学历分布情况（具体说明每个学历层次有多少人）
+2. 学历层次对比分析
+3. 专业匹配度分析（如果有相关信息）
+
+【💼 技能匹配分析】
+1. 热门技能统计（列出出现频率最高的前5个技能）
+2. 技能互补性分析
+3. 技能优势总结
+
+【🏙️ 城市分布分析】
+1. 候选人城市分布
+2. 地域特点分析
+
+【🎯 各候选人优劣势分析】
+针对每个候选人，分别列出：
+- 候选人姓名：
+  - 核心优势：
+  - 潜在不足：
+  - 推荐建议：
+
+【🏆 综合推荐排序】
+给出你的推荐排序并说明理由
+
+请确保分析专业、客观、具体，有数据支撑。"""
+    
+    return call_llm([{"role": "user", "content": prompt}], temperature=0.4)

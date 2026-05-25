@@ -1,3 +1,4 @@
+
 """
 多候选人对比页面
 """
@@ -12,6 +13,7 @@ sys.path.insert(0, project_root)
 
 from database import get_all_talents, search_talents
 from log_system import write_hr_log
+from ai_scorer import analyze_candidates_comparison
 
 # 页面配置
 st.set_page_config(page_title="候选人对比", page_icon="⚖️", layout="wide")
@@ -85,13 +87,38 @@ with col3:
 if st.button("🔍 AI分析比对点", type="primary"):
     write_hr_log("query", "HR", "多候选人对比分析", "", f"对比候选人: {', '.join([t['name'] for t in selected_talent_objects])}")
     
-    # 模拟AI分析结果
-    st.success("✅ AI分析完成！")
-    
+    with st.spinner("🤖 AI正在分析中，请稍候..."):
+        try:
+            # 调用真实的AI分析
+            ai_analysis = analyze_candidates_comparison(selected_talent_objects)
+            
+            if "⚠️" in ai_analysis or "错误" in ai_analysis or "失败" in ai_analysis:
+                st.error(ai_analysis)
+                st.info("💡 提示：请确保已在【04_数据文件/.env】中配置了有效的 API_KEY")
+                
+                # 提供基础统计作为备选方案
+                st.subheader("📊 基础统计分析（备选方案）")
+                show_basic_stats(selected_talent_objects)
+            else:
+                st.success("✅ AI分析完成！")
+                
+                # 美化显示AI分析结果
+                display_ai_analysis(ai_analysis)
+                
+        except Exception as e:
+            st.error(f"AI分析出错：{str(e)}")
+            import traceback
+            traceback.print_exc()
+            st.info("💡 提供基础统计分析：")
+            show_basic_stats(selected_talent_objects)
+
+
+def show_basic_stats(candidates):
+    """显示基础统计分析"""
     # 学历对比
     st.write("\n**📚 学历背景分析：**")
     education_scores = {}
-    for talent in selected_talent_objects:
+    for talent in candidates:
         edu = talent['education']
         if edu not in education_scores:
             education_scores[edu] = 0
@@ -103,7 +130,7 @@ if st.button("🔍 AI分析比对点", type="primary"):
     # 技能对比
     st.write("\n**💼 技能匹配分析：**")
     all_skills = {}
-    for talent in selected_talent_objects:
+    for talent in candidates:
         skills = talent['skills'].split(',') if talent['skills'] else []
         for skill in skills:
             skill = skill.strip()
@@ -112,16 +139,15 @@ if st.button("🔍 AI分析比对点", type="primary"):
                     all_skills[skill] = 0
                 all_skills[skill] += 1
     
-    # 显示技能词云（简化版）
     top_skills = sorted(all_skills.items(), key=lambda x: x[1], reverse=True)[:10]
     st.write("**热门技能：**")
     for skill, count in top_skills:
         st.write(f"  • {skill}: {count}人")
 
     # 城市分布
-    st.write("\n**🏙️ 城市分布：**")
+    st.write("\n**🏙️ 城市分布分析：**")
     city_scores = {}
-    for talent in selected_talent_objects:
+    for talent in candidates:
         city = talent['city']
         if city not in city_scores:
             city_scores[city] = 0
@@ -129,6 +155,22 @@ if st.button("🔍 AI分析比对点", type="primary"):
     
     for city, count in sorted(city_scores.items(), key=lambda x: x[1], reverse=True):
         st.write(f"  • {city}: {count}人")
+
+
+def display_ai_analysis(analysis_text):
+    """美化显示AI分析结果"""
+    # 使用Markdown格式显示
+    st.markdown("---")
+    
+    # 分段显示分析结果
+    sections = analysis_text.split("【")
+    
+    for section in sections[1:]:  # 跳过第一个空字符串
+        if "】" in section:
+            title, content = section.split("】", 1)
+            st.subheader(f"【{title.strip()}】")
+            st.write(content.strip())
+            st.markdown("---")
 
 # HR抽查功能
 st.subheader("🎯 HR抽查")
@@ -192,3 +234,4 @@ for i, talent in enumerate(selected_talent_objects):
         
         if st.button(f"查看简历", key=f"view_{i}"):
             st.text(talent['resume_text'])
+
