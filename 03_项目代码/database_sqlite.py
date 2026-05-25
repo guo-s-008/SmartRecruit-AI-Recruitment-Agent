@@ -576,6 +576,168 @@ def update_talent_status(talent_id, status):
         if conn:
             conn.close()
 
+def add_job_to_db(job_data):
+    """
+    添加岗位到数据库
+    :param job_data: 岗位数据字典
+    :return: 插入的ID
+    """
+    conn = None
+    cursor = None
+    inserted_id = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        sql = """
+        INSERT INTO job_positions 
+        (job_name, jd_content, scoring_criteria, education, city, is_intern, hiring_count, is_open)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(job_name) DO UPDATE SET
+        jd_content=excluded.jd_content,
+        scoring_criteria=excluded.scoring_criteria,
+        education=excluded.education,
+        city=excluded.city,
+        is_intern=excluded.is_intern,
+        hiring_count=excluded.hiring_count,
+        is_open=excluded.is_open,
+        updated_at=CURRENT_TIMESTAMP
+        """
+        cursor.execute(sql, (
+            job_data.get("job_name"),
+            job_data.get("jd_content"),
+            job_data.get("scoring_criteria"),
+            job_data.get("education"),
+            job_data.get("city"),
+            job_data.get("is_intern", 0),
+            job_data.get("hiring_count", 1),
+            job_data.get("is_open", 1)
+        ))
+        
+        cursor.execute("SELECT id FROM job_positions WHERE job_name=?", (job_data.get("job_name"),))
+        result = cursor.fetchone()
+        inserted_id = result[0] if result else None
+        
+        conn.commit()
+        print(f"✅ 岗位已添加到数据库，ID: {inserted_id}")
+    except Exception as e:
+        print(f"❌ 添加岗位失败: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+    return inserted_id
+
+def get_all_jobs():
+    """
+    获取所有岗位
+    :return: 岗位列表
+    """
+    conn = get_db_connection()
+    jobs = []
+    try:
+        cursor = conn.cursor()
+        sql = "SELECT * FROM job_positions ORDER BY created_at DESC"
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+        
+        cursor.execute("PRAGMA table_info(job_positions)")
+        columns = [col[1] for col in cursor.fetchall()]
+        jobs = [dict(zip(columns, row)) for row in rows]
+    except Exception as e:
+        print(f"❌ 查询岗位失败: {e}")
+    finally:
+        conn.close()
+    return jobs
+
+def update_job_status(job_id, is_open):
+    """
+    更新岗位状态
+    :param job_id: 岗位ID
+    :param is_open: 是否开放
+    """
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE job_positions SET is_open=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                      (is_open, job_id))
+        conn.commit()
+        print(f"✅ 岗位状态已更新，ID: {job_id}")
+    except Exception as e:
+        print(f"❌ 更新岗位状态失败: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+def delete_job(job_id):
+    """
+    删除岗位
+    :param job_id: 岗位ID
+    """
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM job_positions WHERE id=?", (job_id,))
+        conn.commit()
+        print(f"✅ 岗位已删除，ID: {job_id}")
+    except Exception as e:
+        print(f"❌ 删除岗位失败: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+def get_all_resumes():
+    """
+    获取所有简历记录
+    :return: 简历列表
+    """
+    conn = get_db_connection()
+    resumes = []
+    try:
+        cursor = conn.cursor()
+        sql = "SELECT * FROM resume_record ORDER BY created_at DESC"
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+        
+        cursor.execute("PRAGMA table_info(resume_record)")
+        columns = [col[1] for col in cursor.fetchall()]
+        resumes = [dict(zip(columns, row)) for row in rows]
+    except Exception as e:
+        print(f"❌ 查询简历失败: {e}")
+    finally:
+        conn.close()
+    return resumes
+
+def get_all_interviews():
+    """
+    获取所有面试记录
+    :return: 面试列表
+    """
+    conn = get_db_connection()
+    interviews = []
+    try:
+        cursor = conn.cursor()
+        sql = "SELECT * FROM interview_record ORDER BY created_at DESC"
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+        
+        cursor.execute("PRAGMA table_info(interview_record)")
+        columns = [col[1] for col in cursor.fetchall()]
+        interviews = [dict(zip(columns, row)) for row in rows]
+    except Exception as e:
+        print(f"❌ 查询面试记录失败: {e}")
+    finally:
+        conn.close()
+    return interviews
+
 # 初始化数据库
 init_tables()
 

@@ -22,7 +22,13 @@ if USE_SQLITE:
         get_all_talents,
         search_talents,
         recommend_talents_for_job,
-        update_talent_status
+        update_talent_status,
+        add_job_to_db,
+        get_all_jobs,
+        update_job_status,
+        delete_job,
+        get_all_resumes,
+        get_all_interviews
     )
 else:
     import pymysql
